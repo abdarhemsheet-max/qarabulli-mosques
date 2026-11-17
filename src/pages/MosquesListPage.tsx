@@ -149,7 +149,7 @@ export function MosquesListPage({
     currentUser.role === 'admin' || mosque.createdBy === currentUser.uid;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 pb-24 space-y-4">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-5 pb-24 space-y-4">
       {/* Top Counter & Excel Export */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -163,7 +163,7 @@ export function MosquesListPage({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button
             type="button"
             onClick={() => exportMosquesToKml(filteredMosques)}
@@ -203,7 +203,7 @@ export function MosquesListPage({
               type="button"
               onClick={() => exportMosquesToExcel(filteredMosques)}
               disabled={filteredMosques.length === 0}
-              className="min-h-[44px] px-4 rounded-xl bg-[#0F4C3A] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-[#0B3A2C] disabled:opacity-50 active:scale-[0.99] transition whitespace-nowrap"
+              className="col-span-2 min-h-[44px] px-4 rounded-xl bg-[#0F4C3A] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-[#0B3A2C] disabled:opacity-50 active:scale-[0.99] transition whitespace-nowrap"
             >
               <FileSpreadsheet className="w-4 h-4 text-[#C9A24B]" />
               <span>تصدير إلى Excel</span>

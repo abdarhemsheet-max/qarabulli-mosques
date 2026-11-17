@@ -358,7 +358,8 @@ export function AddMosquePage({
             className="min-h-[40px] px-3 rounded-xl bg-white/95 backdrop-blur-md border border-[#D8D4C8] text-[#0F4C3A] text-xs font-bold shadow-sm flex items-center gap-1.5 hover:bg-white transition"
           >
             <Link2 className="w-4 h-4 text-[#C9A24B]" />
-            <span>لصق رابط من خرائط جوجل</span>
+            <span className="max-[380px]:hidden">لصق رابط من خرائط جوجل</span>
+            <span className="min-[381px]:hidden">لصق رابط</span>
           </button>
 
           {accuracy !== null && (
@@ -421,7 +422,7 @@ export function AddMosquePage({
       </div>
 
       {/* Bottom Floating Mobile Thumb-Zone Action Controls */}
-      <div className="absolute bottom-[4.25rem] left-3 right-3 z-20 max-w-xl mx-auto flex flex-col gap-2">
+      <div className="absolute bottom-[4.25rem] left-2.5 right-2.5 sm:left-3 sm:right-3 z-20 max-w-xl mx-auto flex flex-col gap-2">
         {pendingPinAdjustLabel && (
           <div className="px-3.5 py-2.5 rounded-xl bg-[#0F4C3A] text-white text-xs font-semibold shadow-lg flex items-center justify-between gap-2 border border-[#C9A24B]/60">
             <span className="leading-relaxed">
@@ -447,15 +448,15 @@ export function AddMosquePage({
           <button
             type="button"
             onClick={handleLocateMe}
-            className="h-12 px-4 rounded-xl bg-white/95 backdrop-blur-md border border-[#D8D4C8] text-[#0F4C3A] font-bold text-sm shadow-md flex items-center gap-2 hover:bg-white active:scale-[0.98] transition"
+            className="h-12 px-3 sm:px-4 rounded-xl bg-white/95 backdrop-blur-md border border-[#D8D4C8] text-[#0F4C3A] font-bold text-sm shadow-md flex items-center gap-2 hover:bg-white active:scale-[0.98] transition whitespace-nowrap"
           >
             <LocateFixed className={`w-5 h-5 text-[#C9A24B] ${locating ? 'animate-spin' : ''}`} />
-            <span>{locating ? 'جاري تحديد موقعك...' : '📍 موقعي الحالي'}</span>
+            <span>{locating ? 'جاري التحديد...' : 'موقعي الحالي'}</span>
           </button>
 
           <div
             dir="ltr"
-            className="px-3 py-2 rounded-xl bg-white/92 backdrop-blur-md border border-[#E5E2D9] text-[11px] sm:text-xs text-[#4A5552] tabular-nums shadow-xs"
+            className="px-2.5 sm:px-3 py-2 rounded-xl bg-white/92 backdrop-blur-md border border-[#E5E2D9] text-[11px] sm:text-xs text-[#4A5552] tabular-nums shadow-xs max-[340px]:hidden"
           >
             {pinPos.lat.toFixed(5)}, {pinPos.lng.toFixed(5)}
           </div>

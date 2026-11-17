@@ -49,8 +49,8 @@ export function LoginPage({ authBanner, onRefreshProfile }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border border-[#E5E2D9] rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+    <div className="min-h-[100dvh] bg-[#FAF8F4] flex flex-col items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-md bg-white border border-[#E5E2D9] rounded-2xl p-5 sm:p-8 shadow-sm space-y-5 sm:space-y-6">
         {/* Emblem & Title */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-[#0F4C3A] text-[#C9A24B] flex items-center justify-center shadow-xs">
