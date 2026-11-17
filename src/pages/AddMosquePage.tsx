@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Link2, LocateFixed, MapPinCheck, X } from 'lucide-react';
 import { GoogleCandidateSheet } from '../components/GoogleCandidateSheet';
+import { LocationPrompt } from '../components/LocationPrompt';
+import { useGeoPermission } from '../lib/location/geoPermission';
 import { GoogleMosqueMap } from '../components/GoogleMosqueMap';
 import { MosqueDetailSheet } from '../components/MosqueDetailSheet';
 import { MosqueFormModal } from '../components/MosqueFormModal';
@@ -68,6 +70,8 @@ export function AddMosquePage({
   const watchIdRef = useRef<number | null>(null);
   const watchTimerRef = useRef<number | null>(null);
   const autoLocatedOnMountRef = useRef(false);
+  const [geoPermission, setGeoPermission] = useGeoPermission();
+  const [promptDismissed, setPromptDismissed] = useState(false);
 
   const selectedExistingMosque = useMemo(
     () => mosques.find((m) => m.id === selectedExistingId) ?? null,
@@ -145,18 +149,22 @@ export function AddMosquePage({
       setLocating(false);
       stopGpsWatch();
       if (err.code === err.PERMISSION_DENIED) {
-        setGpsError(
-          'لم يُسمح بالوصول للموقع. فعّل إذن الموقع في المتصفح (أو افتح الرابط في متصفح الهاتف مباشرة)، أو حرّك الدبوس يدوياً.'
-        );
-      } else if (err.code === err.TIMEOUT) {
-        setGpsError('انتهت مهلة GPS، يمكنك سحب الدبوس أو الضغط على الخريطة لتحديد الموقع.');
+        // The LocationPrompt card explains how to unblock it on this phone.
+        setGeoPermission('denied');
+        setPromptDismissed(false);
+        return;
+      }
+      setGeoPermission('granted');
+      if (err.code === err.TIMEOUT) {
+        setGpsError('إشارة GPS ضعيفة هنا. اقترب من مكان مفتوح واضغط «موقعي الحالي»، أو حدّد المسجد على الخريطة.');
       } else {
-        setGpsError('تعذّر التقاط إشارة الموقع حالياً، يمكنك تحديد الموقع يدوياً على الخريطة.');
+        setGpsError('خدمة الموقع (GPS) مقفلة في الهاتف. شغّلها من شريط الإشعارات ثم اضغط «موقعي الحالي».');
       }
     };
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        setGeoPermission('granted');
         const acc = applyPosition(pos);
         if (acc <= 20) {
           setLocating(false);
@@ -171,6 +179,7 @@ export function AddMosquePage({
         }
         navigator.geolocation.getCurrentPosition(
           (fallbackPos) => {
+            setGeoPermission('granted');
             const acc = applyPosition(fallbackPos);
             if (acc <= 25) {
               setLocating(false);
@@ -192,15 +201,27 @@ export function AddMosquePage({
         maximumAge: 10000,
       }
     );
-  }, [applyPosition, startRefinementWatch, stopGpsWatch]);
+  }, [applyPosition, startRefinementWatch, stopGpsWatch, setGeoPermission]);
 
+  // Locate automatically only when permission is already granted; otherwise
+  // the LocationPrompt asks with a tap (browsers ignore or mute cold prompts).
   useEffect(() => {
-    if (!editingMosque && !autoLocatedOnMountRef.current) {
+    if (editingMosque || autoLocatedOnMountRef.current) return;
+    if (geoPermission === 'granted') {
       autoLocatedOnMountRef.current = true;
       handleLocateMe();
     }
-    return () => stopGpsWatch();
-  }, [editingMosque, handleLocateMe, stopGpsWatch]);
+  }, [editingMosque, geoPermission, handleLocateMe]);
+
+  useEffect(() => () => stopGpsWatch(), [stopGpsWatch]);
+
+  const showLocationPrompt =
+    !editingMosque &&
+    !promptDismissed &&
+    (geoPermission === 'prompt' ||
+      geoPermission === 'unknown' ||
+      geoPermission === 'denied' ||
+      geoPermission === 'unsupported');
 
   useEffect(() => {
     if (editingMosque) {
@@ -482,6 +503,18 @@ export function AddMosquePage({
           </span>
         </button>
       </div>
+
+      {showLocationPrompt && (
+        <LocationPrompt
+          permission={geoPermission}
+          locating={locating}
+          onRequest={() => {
+            autoLocatedOnMountRef.current = true;
+            handleLocateMe();
+          }}
+          onManual={() => setPromptDismissed(true)}
+        />
+      )}
 
       {/* Tap documented green pin to inspect & edit */}
       <MosqueDetailSheet

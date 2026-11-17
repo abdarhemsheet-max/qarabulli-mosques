@@ -1,4 +1,9 @@
-import type { MosqueFormValues, MosqueRecord, UserProfile } from '../../types/mosque';
+import type {
+  GoogleMapsStatus,
+  MosqueFormValues,
+  MosqueRecord,
+  UserProfile,
+} from '../../types/mosque';
 import { generateGoogleMapsUrl } from '../utils/geo';
 import { supabase } from './client';
 import { handleDbError, OperationType } from './errors';
@@ -27,6 +32,13 @@ interface MosqueRow {
   created_at: string | null;
   updated_at: string | null;
   updated_by: string;
+  google_maps_status: string | null;
+  google_maps_submitted_at: string | null;
+  google_maps_submitted_by_name: string | null;
+}
+
+function toGoogleMapsStatus(value: string | null): GoogleMapsStatus {
+  return value === 'submitted' || value === 'live' ? value : 'not_submitted';
 }
 
 function mapMosque(row: MosqueRow): MosqueRecord {
@@ -51,6 +63,9 @@ function mapMosque(row: MosqueRow): MosqueRecord {
     createdAt: row.created_at ? new Date(row.created_at) : new Date(),
     updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
     updatedBy: String(row.updated_by ?? ''),
+    googleMapsStatus: toGoogleMapsStatus(row.google_maps_status),
+    googleMapsSubmittedAt: row.google_maps_submitted_at ? new Date(row.google_maps_submitted_at) : null,
+    googleMapsSubmittedByName: String(row.google_maps_submitted_by_name ?? ''),
     hasPendingWrites: false,
   };
 }
@@ -209,6 +224,18 @@ export async function linkMosqueOsmId(
   const safeOsmId = osmId.trim().slice(0, 64);
   if (!/^[a-zA-Z0-9_\-]+$/.test(safeOsmId)) return;
   const { error } = await supabase.from('mosques').update({ osm_id: safeOsmId }).eq('id', mosqueId);
+  if (error) handleDbError(error, OperationType.UPDATE, `mosques/${mosqueId}`);
+}
+
+export async function setGoogleMapsStatus(
+  mosqueId: string,
+  status: GoogleMapsStatus
+): Promise<void> {
+  assertOnline();
+  const { error } = await supabase.rpc('set_google_maps_status', {
+    p_mosque_id: mosqueId,
+    p_status: status,
+  });
   if (error) handleDbError(error, OperationType.UPDATE, `mosques/${mosqueId}`);
 }
 

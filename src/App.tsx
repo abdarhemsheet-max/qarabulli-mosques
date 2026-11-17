@@ -3,7 +3,6 @@ import { APIProvider } from '@vis.gl/react-google-maps';
 import { BottomNav } from './components/BottomNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
-import { LocationPermissionBanner } from './components/LocationPermissionBanner';
 import {
   fetchOrBootstrapUserProfile,
   getCurrentStaffUser,
@@ -343,7 +342,6 @@ function MainApp() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <LocationPermissionBanner />
       <MainApp />
     </ErrorBoundary>
   );

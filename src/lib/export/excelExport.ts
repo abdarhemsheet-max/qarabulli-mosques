@@ -15,7 +15,15 @@ const HEADERS = [
   'عدد الصور',
   'الموثِّق',
   'تاريخ ووقت التوثيق',
+  'خرائط جوجل',
+  'أرسله لجوجل',
 ];
+
+const GOOGLE_STATUS_LABEL = {
+  not_submitted: 'لم يُرسل',
+  submitted: 'أُرسل — بانتظار المراجعة',
+  live: 'ظاهر في جوجل',
+} as const;
 
 const HEADER_STYLE = {
   font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 12, name: 'Cairo' },
@@ -65,6 +73,10 @@ export function exportMosquesToExcel(mosques: MosqueRecord[]): void {
     m.photoCount ?? m.photos.length,
     m.createdByName,
     formatEnglishDateTime(m.createdAt),
+    GOOGLE_STATUS_LABEL[m.googleMapsStatus] ?? GOOGLE_STATUS_LABEL.not_submitted,
+    m.googleMapsSubmittedByName
+      ? `${m.googleMapsSubmittedByName}${m.googleMapsSubmittedAt ? ` (${formatEnglishDateTime(m.googleMapsSubmittedAt)})` : ''}`
+      : '',
   ]);
 
   const aoa = [HEADERS, ...rows];
@@ -111,7 +123,7 @@ export function exportMosquesToExcel(mosques: MosqueRecord[]): void {
   }
 
   // Ensure sensible minimum column widths
-  const minWidths = [6, 26, 20, 40, 26, 28, 22, 13, 13, 12, 20, 19];
+  const minWidths = [6, 26, 20, 40, 26, 28, 22, 13, 13, 12, 20, 19, 22, 30];
   ws['!cols'] = colWidths.map((w, idx) => ({ wch: Math.max(w, minWidths[idx] ?? 14) }));
 
   // Header row height

@@ -21,6 +21,7 @@ import {
 } from '../lib/utils/geo';
 import { compressImageToBase64 } from '../lib/utils/image';
 import { createMosque, updateMosque } from '../lib/supabase/mosques';
+import { GoogleMapsPublishCard } from './GoogleMapsPublishCard';
 
 interface MosqueFormModalProps {
   open: boolean;
@@ -45,6 +46,9 @@ interface DuplicateCandidate {
 }
 
 interface SavedSummary {
+  id: string;
+  photos: string[];
+  googlePlaceId: string;
   officialName: string;
   locality: string;
   landmark: string;
@@ -276,6 +280,9 @@ export function MosqueFormModal({
       if (editingMosque) {
         const res = await updateMosque(editingMosque.id, payload, currentUser);
         setSavedState({
+          id: editingMosque.id,
+          photos: payload.photos,
+          googlePlaceId: payload.googlePlaceId ?? '',
           officialName: payload.officialName,
           locality: payload.locality,
           landmark: payload.landmark,
@@ -287,6 +294,9 @@ export function MosqueFormModal({
       } else {
         const res = await createMosque(payload, currentUser);
         setSavedState({
+          id: res.id,
+          photos: payload.photos,
+          googlePlaceId: payload.googlePlaceId ?? '',
           officialName: payload.officialName,
           locality: payload.locality,
           landmark: payload.landmark,
@@ -397,6 +407,12 @@ export function MosqueFormModal({
                   : 'تم حفظ المسجد وظهرت كامل بياناته وصوره فوراً في خريطة المنظومة، وتُدرج في ملف Excel.'}
               </p>
             </div>
+
+            {/* Guided Google Maps submission (copy → open → mark as sent) */}
+            <GoogleMapsPublishCard
+              subject={savedState}
+              liveRecord={existingMosques.find((m) => m.id === savedState.id) ?? null}
+            />
 
             {/* Direct Google Maps & Share actions */}
             <div className="p-3.5 rounded-2xl bg-[#FAF8F4] border border-[#E5E2D9] space-y-2.5 text-right">

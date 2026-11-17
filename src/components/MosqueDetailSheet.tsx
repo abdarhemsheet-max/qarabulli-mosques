@@ -4,8 +4,6 @@ import {
   Copy,
   ExternalLink,
   Globe,
-  Info,
-  Mail,
   MapPin,
   Move,
   Navigation,
@@ -16,7 +14,7 @@ import {
 import type { MosqueRecord, OsmSettings, UserProfile } from '../types/mosque';
 import { formatEnglishDateTime, generateDirectionsUrl } from '../lib/utils/geo';
 import { DEFAULT_OSM_SETTINGS } from '../lib/supabase/settings';
-import { generateGooglePlaceUrl } from '../lib/maps/googleMosques';
+import { GoogleMapsPublishCard } from './GoogleMapsPublishCard';
 import { GooglePlaceDetailsBlock } from './GooglePlaceDetailsBlock';
 import { OsmPublishModal } from './OsmPublishModal';
 
@@ -38,32 +36,18 @@ export function MosqueDetailSheet({
   onMovePin,
 }: MosqueDetailSheetProps) {
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
-  const [copiedType, setCopiedType] = useState<'url' | 'share' | 'name' | null>(null);
+  const [copiedType, setCopiedType] = useState<'url' | 'share' | null>(null);
   const [publishOpen, setPublishOpen] = useState(false);
 
   if (!mosque) return null;
 
   const canEdit = currentUser.role === 'admin' || mosque.createdBy === currentUser.uid;
   const directionsUrl = generateDirectionsUrl(mosque.lat, mosque.lng);
-  const googlePlaceTargetUrl = mosque.googlePlaceId
-    ? generateGooglePlaceUrl(mosque.lat, mosque.lng, mosque.googlePlaceId)
-    : mosque.mapsUrl;
-
   const handleCopyUrl = async () => {
     try {
       await navigator.clipboard.writeText(mosque.mapsUrl);
       setCopiedType('url');
       window.setTimeout(() => setCopiedType(null), 2000);
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleCopyNameForGoogle = async () => {
-    try {
-      await navigator.clipboard.writeText(mosque.officialName);
-      setCopiedType('name');
-      window.setTimeout(() => setCopiedType(null), 2500);
     } catch {
       // ignore
     }
@@ -268,39 +252,8 @@ export function MosqueDetailSheet({
               </div>
             )}
 
-            {/* Google Maps Edit Suggestion Hint Box */}
-            <div className="p-3 rounded-xl bg-[#FAF8F4] border border-[#E5E2D9] space-y-2">
-              <a
-                href={googlePlaceTargetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => void handleCopyNameForGoogle()}
-                title="ينسخ اسم المسجد تلقائياً ويفتح صفحة المسجد في خرائط جوجل"
-                className="w-full min-h-[44px] px-3 rounded-xl bg-white border border-[#D8D4C8] text-[#0F4C3A] text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-[#FAF8F4] transition"
-              >
-                <ExternalLink className="w-4 h-4 text-[#C9A24B]" />
-                <span>
-                  {copiedType === 'name'
-                    ? 'تم نسخ الاسم وفتح خرائط جوجل'
-                    : 'نسخ الاسم وفتح جوجل للتعديل طوالي'}
-                </span>
-              </a>
-              <a
-                href="https://mail.google.com/mail/u/0/#search/Google+Maps"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full min-h-[38px] px-3 rounded-xl bg-white border border-[#EFECE4] text-[#4A5552] text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#FAF8F4] transition"
-              >
-                <Mail className="w-3.5 h-3.5 text-[#EA4335]" />
-                <span>متابعة ردود قبول التعديلات في Gmail</span>
-              </a>
-              <p className="text-[11px] text-[#5A6561] flex items-start gap-1.5 leading-relaxed">
-                <Info className="w-3.5 h-3.5 text-[#C9A24B] shrink-0 mt-0.5" />
-                <span>
-                  عند الضغط يُنسخ الاسم تلقائياً وتُفتح صفحة المسجد في جوجل؛ اضغط «اقتراح تعديل» ← «لصق» ← «إرسال» (تعديل جوجل يتم عبر الخريطة وليس عبر إرسال Gmail).
-                </span>
-              </p>
-            </div>
+            {/* Guided Google Maps submission + status tracking */}
+            <GoogleMapsPublishCard subject={mosque} liveRecord={mosque} />
 
             {osmSettings.osmPublishEnabled && (
               <button

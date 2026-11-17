@@ -29,8 +29,13 @@ export interface MosqueRecord {
   createdAt: Date | null;
   updatedAt: Date | null;
   updatedBy: string;
+  googleMapsStatus: GoogleMapsStatus;
+  googleMapsSubmittedAt: Date | null;
+  googleMapsSubmittedByName: string;
   hasPendingWrites?: boolean;
 }
+
+export type GoogleMapsStatus = 'not_submitted' | 'submitted' | 'live';
 
 export interface OsmMosqueCandidate {
   osmId: string;
