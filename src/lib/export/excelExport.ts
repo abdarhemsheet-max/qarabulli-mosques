@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx-js-style';
 import type { MosqueRecord } from '../../types/mosque';
-import { formatEnglishDate } from '../utils/geo';
+import { formatEnglishDate, formatEnglishDateTime } from '../utils/geo';
 
 const HEADERS = [
   'م',
@@ -14,7 +14,7 @@ const HEADERS = [
   'خط الطول',
   'عدد الصور',
   'الموثِّق',
-  'تاريخ التوثيق',
+  'تاريخ ووقت التوثيق',
 ];
 
 const HEADER_STYLE = {
@@ -64,7 +64,7 @@ export function exportMosquesToExcel(mosques: MosqueRecord[]): void {
     Number(m.lng.toFixed(6)),
     m.photoCount ?? m.photos.length,
     m.createdByName,
-    formatEnglishDate(m.createdAt),
+    formatEnglishDateTime(m.createdAt),
   ]);
 
   const aoa = [HEADERS, ...rows];
@@ -111,7 +111,7 @@ export function exportMosquesToExcel(mosques: MosqueRecord[]): void {
   }
 
   // Ensure sensible minimum column widths
-  const minWidths = [6, 26, 20, 40, 26, 28, 22, 13, 13, 12, 20, 15];
+  const minWidths = [6, 26, 20, 40, 26, 28, 22, 13, 13, 12, 20, 19];
   ws['!cols'] = colWidths.map((w, idx) => ({ wch: Math.max(w, minWidths[idx] ?? 14) }));
 
   // Header row height
