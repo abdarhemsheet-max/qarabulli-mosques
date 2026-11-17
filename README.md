@@ -87,7 +87,7 @@ src/
 1. أنشئ مشروعاً جديداً في [supabase.com](https://supabase.com).
 2. من **Authentication → Sign In / Providers → Email** أوقف خيار **Confirm email** (حتى يستطيع المدير إنشاء حسابات الموثّقين مباشرة).
 3. من **Authentication → Users → Add user** أنشئ حساب المدير بالبريد `abdarhemsheet@gmail.com` مع تفعيل **Auto Confirm User**.
-4. من **SQL Editor** الصق محتوى `supabase/schema.sql` واضغط **Run** (ينشئ الجداول والصلاحيات ويربط حساب المدير).
+4. طبّق قاعدة البيانات عبر Supabase CLI: `supabase link --project-ref <ref>` ثم `supabase db push` (الملفات في `supabase/migrations`). حساب المدير يُربط تلقائياً عند إنشائه.
 5. من **Project Settings → API** انسخ **Project URL** و**anon public key** وضعهما في `supabase-config.json`:
    ```json
    { "url": "https://xxxx.supabase.co", "anonKey": "eyJ..." }
