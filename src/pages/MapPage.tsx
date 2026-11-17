@@ -10,7 +10,7 @@ import { useUserLocation } from '../lib/location/useUserLocation';
 import { updateMosque } from '../lib/supabase/mosques';
 import {
   formatDistance,
-  generateGoogleMapsSearchUrl,
+  generateGoogleMapsPlaceUrl,
   haversineDistanceMeters,
   normalizeArabicName,
 } from '../lib/utils/geo';
@@ -406,7 +406,11 @@ export function MapPage({ mosques, osmCandidates, currentUser, osmSettings, focu
               وثّق هذا المسجد
             </button>
             <a
-              href={generateGoogleMapsSearchUrl(selectedOsm.lat, selectedOsm.lng)}
+              href={generateGoogleMapsPlaceUrl(
+                selectedOsm.nameAr || selectedOsm.nameRaw || selectedOsm.name,
+                selectedOsm.lat,
+                selectedOsm.lng
+              )}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-outline w-full h-12 text-sm"

@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Check, CheckCircle2, ChevronDown, Copy, ExternalLink, ImageUp, RotateCcw, Send } from 'lucide-react';
 import type { GoogleMapsStatus, MosqueRecord } from '../types/mosque';
 import { setGoogleMapsStatus } from '../lib/supabase/mosques';
-import { formatEnglishDateTime, generateGoogleMapsSearchUrl } from '../lib/utils/geo';
+import {
+  formatEnglishDateTime,
+  generateGoogleMapsNearbyMosquesUrl,
+  generateGoogleMapsPlaceUrl,
+  generateGoogleMapsSearchUrl,
+} from '../lib/utils/geo';
 import { GoogleStatusBadge } from './ui/GoogleStatusBadge';
 
 export interface GoogleMapsPublishSubject {
@@ -49,7 +54,10 @@ export function GoogleMapsPublishCard({ subject, liveRecord }: GoogleMapsPublish
   const status: GoogleMapsStatus = optimistic ?? liveRecord?.googleMapsStatus ?? 'not_submitted';
   const by = liveRecord?.googleMapsSubmittedByName ?? '';
   const at = liveRecord?.googleMapsSubmittedAt ?? null;
-  const googleUrl = generateGoogleMapsSearchUrl(subject.lat, subject.lng, subject.googlePlaceId);
+  // Open the mosque's own Google place (by name around its location), not a bare pin.
+  const googleUrl = generateGoogleMapsPlaceUrl(subject.officialName, subject.lat, subject.lng, subject.googlePlaceId);
+  const nearbyUrl = generateGoogleMapsNearbyMosquesUrl(subject.lat, subject.lng);
+  const exactPinUrl = generateGoogleMapsSearchUrl(subject.lat, subject.lng);
 
   const canSharePhotos =
     subject.photos.length > 0 &&
@@ -140,9 +148,22 @@ export function GoogleMapsPublishCard({ subject, liveRecord }: GoogleMapsPublish
               className="w-full flex items-center gap-3 text-right"
             >
               <Step n={2} done={opened} />
-              <span className="flex-1 text-sm font-bold text-ink">افتح المكان في خرائط جوجل وأرسله</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-bold text-ink">افتح المسجد في خرائط جوجل</span>
+                <span className="block text-xs text-muted">يفتح صفحة المسجد نفسه إن كان مسجّلاً في جوجل</span>
+              </span>
               <ExternalLink className="w-4 h-4 text-muted" />
             </a>
+            {opened && (
+              <div className="ms-10 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
+                <a href={nearbyUrl} target="_blank" rel="noopener noreferrer" className="text-brand underline">
+                  لم يظهر؟ اعرض المساجد القريبة
+                </a>
+                <a href={exactPinUrl} target="_blank" rel="noopener noreferrer" className="text-muted underline">
+                  غير موجود؟ افتح النقطة لإضافته
+                </a>
+              </div>
+            )}
 
             {subject.photos.length > 0 && (
               <button
@@ -171,10 +192,13 @@ export function GoogleMapsPublishCard({ subject, liveRecord }: GoogleMapsPublish
           {showHelp && (
             <div className="text-[13px] text-ink/80 leading-relaxed space-y-1.5 bg-white rounded-xl p-3 border border-line">
               <p>
-                <b>المسجد ظاهر؟</b> اضغط عليه ← «اقتراح تعديل» ← الصق الاسم أو صحّح الموقع ← «إرسال».
+                <b>فتحت صفحة المسجد؟</b> اضغط «اقتراح تعديل» ← صحّح الاسم (الصقه) أو الموقع ← «إرسال». وللصور: «الصور» ← «إضافة صور».
               </p>
               <p>
-                <b>غير ظاهر؟</b> اضغط مطوّلاً على مكانه ← «إضافة مكان مفقود» ← الصق الاسم ← الفئة «مسجد» ← «إرسال».
+                <b>ظهرت قائمة مساجد؟</b> اختر المسجد الصحيح منها ثم «اقتراح تعديل».
+              </p>
+              <p>
+                <b>غير موجود في جوجل؟</b> اضغط «افتح النقطة لإضافته» ← اضغط مطوّلاً على مكانه ← «إضافة مكان مفقود» ← الصق الاسم ← الفئة «مسجد» ← «إرسال».
               </p>
               <p className="text-xs text-muted">جوجل تراجع خلال أيام وترسل النتيجة لبريد حساب جوجل في الهاتف.</p>
             </div>

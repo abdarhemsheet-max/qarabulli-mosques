@@ -12,10 +12,31 @@ export function generateDirectionsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lng.toFixed(6)}`;
 }
 
-/** Opens the spot in the Google Maps app (or the place card when the Place ID is known). */
+/** Drops a pin at the exact coordinates (used to add a missing place). */
 export function generateGoogleMapsSearchUrl(lat: number, lng: number, placeId?: string): string {
   const base = `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
   return placeId ? `${base}&query_place_id=${encodeURIComponent(placeId)}` : base;
+}
+
+function isGenericMosqueName(name: string): boolean {
+  const n = name.trim();
+  return !n || n === 'مسجد' || n === 'جامع' || /بدون اسم/.test(n) || /^mosque$/i.test(n);
+}
+
+/**
+ * Opens the mosque's own place card in Google Maps: searches its name around
+ * its coordinates (Google jumps straight to the place when it matches).
+ * Falls back to "mosques around this spot" when the name is generic.
+ */
+export function generateGoogleMapsPlaceUrl(name: string, lat: number, lng: number, placeId?: string): string {
+  if (placeId) return generateGoogleMapsSearchUrl(lat, lng, placeId);
+  if (isGenericMosqueName(name)) return generateGoogleMapsNearbyMosquesUrl(lat, lng);
+  return `https://www.google.com/maps/search/${encodeURIComponent(name.trim())}/@${lat.toFixed(6)},${lng.toFixed(6)},18z`;
+}
+
+/** Lists the mosques Google already knows around this spot. */
+export function generateGoogleMapsNearbyMosquesUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/search/${encodeURIComponent('مسجد')}/@${lat.toFixed(6)},${lng.toFixed(6)},18z`;
 }
 
 export function formatDistance(meters: number): string {
