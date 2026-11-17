@@ -1,0 +1,11 @@
+{
+  "name": "توثيق مساجد مكتب أوقاف القره بوللي",
+  "description": "تطبيق ميداني لتوثيق مساجد مكتب أوقاف القره بوللي وحفظ إحداثياتها وصورها وتصديرها إلى Excel.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

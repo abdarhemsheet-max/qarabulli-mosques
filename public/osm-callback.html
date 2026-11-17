@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>إتمام تسجيل الدخول - OpenStreetMap</title>
+  </head>
+  <body style="font-family: system-ui, -apple-system, sans-serif; background: #faf8f4; color: #1a2421; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0;">
+    <div style="text-align: center; padding: 1.5rem;">
+      <p style="font-size: 1rem; font-weight: 700; color: #0f4c3a; margin: 0 0 0.5rem;">
+        تمت المصادقة مع OpenStreetMap
+      </p>
+      <p style="font-size: 0.875rem; color: #5a6561; margin: 0;">
+        تُغلق هذه النافذة تلقائياً...
+      </p>
+    </div>
+    <script>
+      try {
+        var ch = new BroadcastChannel('osm-api-auth-complete');
+        ch.postMessage(window.location.href);
+        ch.close();
+      } catch (e) {}
+      try {
+        if (window.opener && typeof window.opener.authComplete === 'function') {
+          window.opener.authComplete(window.location.href);
+        }
+      } catch (e) {}
+      window.close();
+    </script>
+  </body>
+</html>
