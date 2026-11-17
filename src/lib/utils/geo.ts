@@ -1,6 +1,7 @@
+// Al-Qarabulli town centre (OpenStreetMap / Nominatim)
 export const QARABULLI_CENTER = {
-  lat: 32.75,
-  lng: 14.29,
+  lat: 32.7427,
+  lng: 13.7128,
 };
 
 export function generateGoogleMapsUrl(lat: number, lng: number): string {
@@ -9,6 +10,29 @@ export function generateGoogleMapsUrl(lat: number, lng: number): string {
 
 export function generateDirectionsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lng.toFixed(6)}`;
+}
+
+/** Opens the spot in the Google Maps app (or the place card when the Place ID is known). */
+export function generateGoogleMapsSearchUrl(lat: number, lng: number, placeId?: string): string {
+  const base = `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
+  return placeId ? `${base}&query_place_id=${encodeURIComponent(placeId)}` : base;
+}
+
+export function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)} م`;
+  return `${(meters / 1000).toFixed(1)} كم`;
+}
+
+export function timeAgoArabic(date: Date | null | undefined): string {
+  if (!date) return '';
+  const diffMin = Math.round((Date.now() - date.getTime()) / 60000);
+  if (diffMin < 1) return 'الآن';
+  if (diffMin < 60) return `قبل ${diffMin} د`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `قبل ${diffH} س`;
+  const diffD = Math.round(diffH / 24);
+  if (diffD < 30) return `قبل ${diffD} يوم`;
+  return formatEnglishDate(date);
 }
 
 export interface ParsedGoogleMapsResult {

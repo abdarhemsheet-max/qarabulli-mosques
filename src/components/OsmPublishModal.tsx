@@ -57,7 +57,7 @@ export function OsmPublishModal({
 
   return (
     <div
-      className="fixed inset-0 z-[1100] bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4"
+      className="fixed inset-0 z-[1250] bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

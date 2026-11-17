@@ -1,341 +1,171 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { APIProvider } from '@vis.gl/react-google-maps';
+import { AppHeader } from './components/AppHeader';
 import { BottomNav } from './components/BottomNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { HeaderBar } from './components/HeaderBar';
 import {
   fetchOrBootstrapUserProfile,
-  getCurrentStaffUser,
-  initWorkspaceTokenWatcher,
   onStaffAuthChange,
   signOutStaff,
   type StaffUser,
 } from './lib/supabase/auth';
 import { subscribeMosques } from './lib/supabase/mosques';
 import { DEFAULT_OSM_SETTINGS, subscribeOsmSettings } from './lib/supabase/settings';
-import { subscribeGoogleSheetsConfig } from './lib/supabase/sheetsConfig';
-import { fetchQarabulliOsmMosques } from './lib/utils/osmMosques';
+import { loadQarabulliOsmMosques } from './lib/utils/osmMosques';
 import { haversineDistanceMeters } from './lib/utils/geo';
-import { AddMosquePage } from './pages/AddMosquePage';
+import { DEMO_MOSQUES, DEMO_USER, isDemoMode } from './lib/demo';
 import { LoginPage } from './pages/LoginPage';
-import { MosquesListPage } from './pages/MosquesListPage';
-import { UsersPage } from './pages/UsersPage';
-import type {
-  ActiveTab,
-  GoogleMosqueCandidate,
-  GoogleSheetsConfig,
-  MosqueRecord,
-  OsmMosqueCandidate,
-  OsmSettings,
-  UserProfile,
-} from './types/mosque';
+import { MapPage, type MapFocusRequest } from './pages/MapPage';
+import { ListPage } from './pages/ListPage';
+import { AdminPage } from './pages/AdminPage';
+import type { ActiveTab, MosqueRecord, OsmMosqueCandidate, OsmSettings, UserProfile } from './types/mosque';
 
-const GOOGLE_MAPS_API_KEY = (
-  import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
-)?.trim() ?? '';
+const TAB_TITLES: Record<ActiveTab, string> = {
+  map: 'توثيق المساجد',
+  list: 'المساجد الموثّقة',
+  admin: 'لوحة الإدارة',
+};
 
 function MainApp() {
-  const [authReady, setAuthReady] = useState(false);
+  const [authReady, setAuthReady] = useState(isDemoMode);
   const [authUser, setAuthUser] = useState<StaffUser | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [authBanner, setAuthBanner] = useState<{
-    type: 'verify-email' | 'no-profile';
-    email?: string | null;
-  } | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(isDemoMode ? DEMO_USER : null);
+  const [authBanner, setAuthBanner] = useState<{ type: 'no-profile'; email?: string | null } | null>(null);
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('add');
-  const [mosques, setMosques] = useState<MosqueRecord[]>([]);
-  const [rawGoogleMosques, setRawGoogleMosques] = useState<GoogleMosqueCandidate[]>([]);
-  const [rawOsmMosques, setRawOsmMosques] = useState<OsmMosqueCandidate[]>([]);
+  const [tab, setTab] = useState<ActiveTab>('map');
+  const [mosques, setMosques] = useState<MosqueRecord[]>(isDemoMode ? DEMO_MOSQUES : []);
+  const [rawOsm, setRawOsm] = useState<OsmMosqueCandidate[]>([]);
   const [osmSettings, setOsmSettings] = useState<OsmSettings>(DEFAULT_OSM_SETTINGS);
-  const [sheetConfig, setSheetConfig] = useState<GoogleSheetsConfig | null>(null);
-  const [mosquesLoading, setMosquesLoading] = useState(true);
-  const [editingMosque, setEditingMosque] = useState<MosqueRecord | null>(null);
-  const [firestoreError, setFirestoreError] = useState<Error | null>(null);
-  const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [loading, setLoading] = useState(!isDemoMode);
+  const [fatal, setFatal] = useState<Error | null>(null);
+  const [mapFocus, setMapFocus] = useState<MapFocusRequest | null>(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
 
-  const [isOnline, setIsOnline] = useState<boolean>(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
-
-  // Track browser online/offline state
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
     };
   }, []);
 
-  // Top-level Case A quota listener (persists across child unmounts)
+  const loadProfile = useCallback(async (user: StaffUser) => {
+    const { profile: p } = await fetchOrBootstrapUserProfile(user);
+    setProfile(p);
+    setAuthBanner(p ? null : { type: 'no-profile', email: user.email });
+  }, []);
+
   useEffect(() => {
-    const handleQuota = () => setQuotaExceeded(true);
-    window.addEventListener('gmp-quota-exceeded', handleQuota);
-    return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
-  }, []);
-
-  const mergeGoogleMosques = useCallback((incoming: GoogleMosqueCandidate[]) => {
-    if (incoming.length === 0) return;
-    setRawGoogleMosques((prev) => {
-      const seen = new Set(prev.map((p) => p.placeId));
-      const next = [...prev];
-      for (const item of incoming) {
-        if (!seen.has(item.placeId)) {
-          seen.add(item.placeId);
-          next.push(item);
-        }
-      }
-      return next;
-    });
-  }, []);
-
-  const loadUserProfile = useCallback(async (user: StaffUser) => {
-    const { profile, needsVerificationForBootstrap } =
-      await fetchOrBootstrapUserProfile(user);
-
-    if (profile) {
-      setUserProfile(profile);
-      setAuthBanner(null);
-    } else if (needsVerificationForBootstrap) {
-      setUserProfile(null);
-      setAuthBanner({ type: 'verify-email', email: user.email });
-    } else {
-      setUserProfile(null);
-      setAuthBanner({ type: 'no-profile', email: user.email });
-    }
-  }, []);
-
-  // Clear in-memory Google Workspace OAuth token on sign-out
-  useEffect(() => {
-    return initWorkspaceTokenWatcher();
-  }, []);
-
-  // Listen to Supabase Auth state
-  useEffect(() => {
-    const unsub = onStaffAuthChange(async (user) => {
+    if (isDemoMode) return;
+    return onStaffAuthChange(async (user) => {
       setAuthUser(user);
       if (user) {
         try {
-          await loadUserProfile(user);
+          await loadProfile(user);
         } catch (err) {
-          setFirestoreError(err instanceof Error ? err : new Error(String(err)));
+          setFatal(err instanceof Error ? err : new Error(String(err)));
         }
       } else {
-        setUserProfile(null);
+        setProfile(null);
         setAuthBanner(null);
         setMosques([]);
-        setSheetConfig(null);
+        setTab('map');
       }
       setAuthReady(true);
     });
-    return () => unsub();
-  }, [loadUserProfile]);
+  }, [loadProfile]);
 
-  // Subscribe to mosques and load cached/live OSM mosques when authenticated
+  // Load the OpenStreetMap layer as soon as someone is signed in
   useEffect(() => {
-    if (!authReady || !userProfile) {
-      setMosquesLoading(false);
-      return;
-    }
+    if (!profile) return;
+    void loadQarabulliOsmMosques(setRawOsm);
+  }, [profile?.uid]);
 
-    setMosquesLoading(true);
-    const unsub = subscribeMosques(
+  useEffect(() => {
+    if (isDemoMode || !profile) return;
+    setLoading(true);
+    const unsubMosques = subscribeMosques(
       (list) => {
         setMosques(list);
-        setMosquesLoading(false);
+        setLoading(false);
       },
       (err) => {
-        setMosquesLoading(false);
-        setFirestoreError(err);
+        setLoading(false);
+        setFatal(err);
       }
     );
-
-    const unsubSettings = subscribeOsmSettings((settings) => {
-      setOsmSettings(settings);
-    });
-
-    const unsubSheetsConfig = subscribeGoogleSheetsConfig((cfg) => {
-      setSheetConfig(cfg);
-    });
-
-    void fetchQarabulliOsmMosques().then((items) => {
-      setRawOsmMosques(items);
-    });
-
+    const unsubSettings = subscribeOsmSettings(setOsmSettings);
     return () => {
-      unsub();
+      unsubMosques();
       unsubSettings();
-      unsubSheetsConfig();
     };
-  }, [authReady, userProfile]);
+  }, [profile?.uid]);
 
-  // Hide red Google Maps pins once linked via googlePlaceId or documented within 35m
-  const unverifiedGoogleCandidates = useMemo(
+  // Hide grey OSM pins that are already documented (linked by ID or within 35 m)
+  const osmCandidates = useMemo(
     () =>
-      rawGoogleMosques.filter(
-        (cand) =>
+      rawOsm.filter(
+        (c) =>
           !mosques.some(
-            (m) =>
-              (Boolean(m.googlePlaceId) && m.googlePlaceId === cand.placeId) ||
-              haversineDistanceMeters(cand.lat, cand.lng, m.lat, m.lng) <= 35
+            (m) => (m.osmId && m.osmId === c.osmId) || haversineDistanceMeters(c.lat, c.lng, m.lat, m.lng) <= 35
           )
       ),
-    [rawGoogleMosques, mosques]
+    [rawOsm, mosques]
   );
 
-  // Hide gray OSM pins once linked via osmId or documented within 35m
-  const unverifiedOsmCandidates = useMemo(
-    () =>
-      rawOsmMosques.filter(
-        (cand) =>
-          !mosques.some(
-            (m) =>
-              (Boolean(m.osmId) && m.osmId === cand.osmId) ||
-              haversineDistanceMeters(cand.lat, cand.lng, m.lat, m.lng) <= 35
-          )
-      ),
-    [rawOsmMosques, mosques]
-  );
-
-  if (firestoreError) {
-    throw firestoreError;
-  }
-
-  const pendingCount = useMemo(
-    () => mosques.filter((m) => m.hasPendingWrites).length,
-    [mosques]
-  );
-
-  const handleRefreshProfile = async () => {
-    if (!authUser) return;
-    const current = await getCurrentStaffUser();
-    if (current) {
-      await loadUserProfile(current);
-    }
-  };
-
-  const handleEditMosque = (mosque: MosqueRecord) => {
-    setEditingMosque(mosque);
-    setActiveTab('add');
-  };
-
-  const quotaBanner = quotaExceeded ? (
-    <div
-      className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm"
-      dir="ltr"
-    >
-      <span>
-        Google Maps Platform quota reached. If you are the app owner, visit{' '}
-        <a
-          href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline font-semibold text-amber-950 hover:text-amber-800"
-        >
-          maps developer site
-        </a>{' '}
-        for instructions to update your account.
-      </span>
-    </div>
-  ) : null;
-
-  let content: React.ReactNode;
+  if (fatal) throw fatal;
 
   if (!authReady) {
-    content = (
-      <div className="min-h-screen bg-[#FAF8F4] flex items-center justify-center p-6">
-        <p className="text-sm font-semibold text-[#0F4C3A]">جاري التحقق من الجلسة...</p>
-      </div>
-    );
-  } else if (!authUser || !userProfile) {
-    content = (
-      <LoginPage
-        authBanner={authBanner}
-        onRefreshProfile={handleRefreshProfile}
-      />
-    );
-  } else {
-    const hasGoogleKey = Boolean(GOOGLE_MAPS_API_KEY);
-    content = (
-      <div className="min-h-[100dvh] bg-[#FAF8F4] flex flex-col">
-        {quotaBanner}
-
-        <HeaderBar
-          user={userProfile}
-          isOnline={isOnline}
-          pendingCount={pendingCount}
-          activeTab={activeTab}
-          onSelectTab={(tab) => {
-            if (tab !== 'add') setEditingMosque(null);
-            setActiveTab(tab);
-          }}
-          onSignOut={() => void signOutStaff()}
-        />
-
-        <main className="flex-1 flex flex-col">
-          {activeTab === 'add' && (
-            <AddMosquePage
-              mosques={mosques}
-              googleCandidates={unverifiedGoogleCandidates}
-              osmCandidates={unverifiedOsmCandidates}
-              hasGoogleKey={hasGoogleKey}
-              onMergeGoogleCandidates={mergeGoogleMosques}
-              currentUser={userProfile}
-              osmSettings={osmSettings}
-              editingMosque={editingMosque}
-              onClearEditing={() => setEditingMosque(null)}
-              onSelectExistingForEdit={(existing) => setEditingMosque(existing)}
-            />
-          )}
-
-          {activeTab === 'list' && (
-            <MosquesListPage
-              mosques={mosques}
-              currentUser={userProfile}
-              osmSettings={osmSettings}
-              sheetConfig={sheetConfig}
-              loading={mosquesLoading}
-              onEditMosque={handleEditMosque}
-            />
-          )}
-
-          {activeTab === 'users' && (
-            <UsersPage currentUser={userProfile} osmSettings={osmSettings} />
-          )}
-        </main>
-
-        <BottomNav
-          activeTab={activeTab}
-          onSelectTab={(tab) => {
-            if (tab !== 'add') setEditingMosque(null);
-            setActiveTab(tab);
-          }}
-        />
-      </div>
-    );
-  }
-
-  if (GOOGLE_MAPS_API_KEY) {
     return (
-      <APIProvider
-        apiKey={GOOGLE_MAPS_API_KEY}
-        language="ar"
-        region="LY"
-        libraries={['places', 'marker', 'geometry']}
-      >
-        {content}
-      </APIProvider>
+      <div className="min-h-[100dvh] bg-brand flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-white/20 border-t-gold animate-spin" />
+      </div>
     );
   }
+
+  if (!profile || (!isDemoMode && !authUser)) {
+    return <LoginPage authBanner={authBanner} />;
+  }
+
+  const isAdmin = profile.role === 'admin';
+  const activeTab: ActiveTab = tab === 'admin' && !isAdmin ? 'map' : tab;
 
   return (
-    <>
-      {quotaBanner}
-      {content}
-    </>
+    <div className="h-[100dvh] flex flex-col bg-sand overflow-hidden">
+      <AppHeader user={profile} title={TAB_TITLES[activeTab]} isOnline={isOnline} onSignOut={() => void signOutStaff()} />
+
+      <main className="relative flex-1 min-h-0">
+        {/* Keep the map mounted so it doesn't reload when switching tabs */}
+        <div className={activeTab === 'map' ? 'absolute inset-0' : 'hidden'}>
+          <MapPage
+            mosques={mosques}
+            osmCandidates={osmCandidates}
+            currentUser={profile}
+            osmSettings={osmSettings}
+            focus={mapFocus}
+          />
+        </div>
+        {activeTab === 'list' && (
+          <ListPage
+            mosques={mosques}
+            currentUser={profile}
+            osmSettings={osmSettings}
+            loading={loading}
+            onShowOnMap={(m) => {
+              setMapFocus({ lat: m.lat, lng: m.lng, mosqueId: m.id, nonce: Date.now() });
+              setTab('map');
+            }}
+          />
+        )}
+        {activeTab === 'admin' && isAdmin && (
+          <AdminPage mosques={mosques} currentUser={profile} osmSettings={osmSettings} />
+        )}
+      </main>
+
+      <BottomNav activeTab={activeTab} isAdmin={isAdmin} onSelectTab={setTab} />
+    </div>
   );
 }
 

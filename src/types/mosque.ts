@@ -9,6 +9,8 @@ export interface UserProfile {
   createdBy: string;
 }
 
+export type GoogleMapsStatus = 'not_submitted' | 'submitted' | 'live';
+
 export interface MosqueRecord {
   id: string;
   officialName: string;
@@ -35,8 +37,6 @@ export interface MosqueRecord {
   hasPendingWrites?: boolean;
 }
 
-export type GoogleMapsStatus = 'not_submitted' | 'submitted' | 'live';
-
 export interface OsmMosqueCandidate {
   osmId: string;
   osmType: 'node' | 'way' | 'relation';
@@ -47,43 +47,6 @@ export interface OsmMosqueCandidate {
   tags: Record<string, string>;
   lat: number;
   lng: number;
-}
-
-export interface GoogleMosqueCandidate {
-  placeId: string;
-  displayName: string;
-  formattedAddress: string;
-  googleMapsUri: string;
-  businessStatus: string;
-  lat: number;
-  lng: number;
-}
-
-export interface GooglePlacePhotoItem {
-  thumbUrl: string;
-  fullUrl: string;
-  attributions: { displayName: string; uri: string }[];
-}
-
-export interface GooglePlaceReviewItem {
-  rating: number | null;
-  text: string;
-  relativeTime: string;
-  authorName: string;
-  authorUri: string;
-}
-
-export interface GooglePlaceRichDetails extends GoogleMosqueCandidate {
-  categoryLabel: string;
-  plusCode: string;
-  phoneNumber: string;
-  websiteUri: string;
-  rating: number | null;
-  userRatingCount: number;
-  weekdayDescriptions: string[];
-  editorialSummary: string;
-  photos: GooglePlacePhotoItem[];
-  reviews: GooglePlaceReviewItem[];
 }
 
 export interface MosqueFormValues {
@@ -105,14 +68,9 @@ export interface OsmSettings {
   osmUseProduction: boolean;
 }
 
-export interface GoogleSheetsConfig {
-  spreadsheetId: string;
-  spreadsheetTitle: string;
-  spreadsheetUrl: string;
-  sheetName: string;
-  lastSyncedCount: number;
-  lastSyncedAt: Date | null;
-  lastSyncedBy: string;
-}
+export type ActiveTab = 'map' | 'list' | 'admin';
 
-export type ActiveTab = 'add' | 'list' | 'users';
+export interface LatLng {
+  lat: number;
+  lng: number;
+}

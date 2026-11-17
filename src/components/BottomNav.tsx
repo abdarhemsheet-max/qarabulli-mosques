@@ -1,45 +1,43 @@
-import { List, MapPinPlus } from 'lucide-react';
+import { LayoutDashboard, List, Map as MapIcon } from 'lucide-react';
 import type { ActiveTab } from '../types/mosque';
 
 interface BottomNavProps {
   activeTab: ActiveTab;
+  isAdmin: boolean;
   onSelectTab: (tab: ActiveTab) => void;
 }
 
-const NAV_ITEMS: { id: Exclude<ActiveTab, 'users'>; label: string; icon: typeof MapPinPlus }[] = [
-  { id: 'add', label: 'إضافة', icon: MapPinPlus },
-  { id: 'list', label: 'القائمة', icon: List },
-];
+export function BottomNav({ activeTab, isAdmin, onSelectTab }: BottomNavProps) {
+  const items: { id: ActiveTab; label: string; icon: typeof MapIcon }[] = [
+    { id: 'map', label: 'الخريطة', icon: MapIcon },
+    { id: 'list', label: 'المساجد', icon: List },
+    ...(isAdmin ? [{ id: 'admin' as const, label: 'الإدارة', icon: LayoutDashboard }] : []),
+  ];
 
-export function BottomNav({ activeTab, onSelectTab }: BottomNavProps) {
   return (
     <nav
       aria-label="التنقل الرئيسي"
-      className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E5E2D9] pb-[env(safe-area-inset-bottom)]"
+      className="relative z-[700] shrink-0 bg-white border-t border-line pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="max-w-5xl mx-auto h-14 grid grid-cols-2 items-center">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
+      <div className="h-16 max-w-md mx-auto flex">
+        {items.map(({ id, label, icon: Icon }) => {
+          const active = activeTab === id;
           return (
             <button
-              key={item.id}
+              key={id}
               type="button"
-              onClick={() => onSelectTab(item.id)}
-              className={`relative h-full min-h-[48px] flex flex-col items-center justify-center gap-0.5 active:bg-[#0F4C3A]/5 transition-colors ${
-                isActive
-                  ? 'text-[#0F4C3A] font-bold'
-                  : 'text-[#5A6561] hover:text-[#1A2421] font-medium'
-              }`}
+              onClick={() => onSelectTab(id)}
+              className="flex-1 flex flex-col items-center justify-center gap-1"
+              aria-current={active ? 'page' : undefined}
             >
-              {isActive && (
-                <span
-                  aria-hidden="true"
-                  className="absolute top-0 w-12 h-0.5 rounded-full bg-[#C9A24B]"
-                />
-              )}
-              <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
-              <span className="text-xs leading-none whitespace-nowrap">{item.label}</span>
+              <span
+                className={`h-8 w-14 rounded-full flex items-center justify-center transition ${
+                  active ? 'bg-brand-soft text-brand' : 'text-muted'
+                }`}
+              >
+                <Icon className={`w-5.5 h-5.5 ${active ? 'stroke-[2.4]' : ''}`} />
+              </span>
+              <span className={`text-xs ${active ? 'font-extrabold text-brand' : 'font-semibold text-muted'}`}>{label}</span>
             </button>
           );
         })}

@@ -1,0 +1,16 @@
+{
+  "name": "توثيق مساجد أوقاف القره بوللي",
+  "short_name": "توثيق المساجد",
+  "description": "تطبيق ميداني لتوثيق مساجد مكتب أوقاف القره بوللي",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F4C3A",
+  "theme_color": "#0F4C3A",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

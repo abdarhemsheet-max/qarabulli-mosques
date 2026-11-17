@@ -31,34 +31,6 @@ function uniqueChannel(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Google Sheets sync is not available with email/password Supabase auth.
-// These stubs keep the existing UI modules compiling; the Sheets button is hidden.
-// ---------------------------------------------------------------------------
-
-export const GOOGLE_SHEETS_AVAILABLE = false;
-
-export function getWorkspaceAccessToken(): string | null {
-  return null;
-}
-
-export function clearWorkspaceAccessToken(): void {
-  /* no-op */
-}
-
-export function subscribeWorkspaceToken(listener: (token: string | null) => void): Unsubscribe {
-  listener(null);
-  return () => {};
-}
-
-export function initWorkspaceTokenWatcher(): Unsubscribe {
-  return () => {};
-}
-
-export async function connectGoogleSheetsAccess(): Promise<string> {
-  throw new Error('الربط مع Google Sheets غير متاح حالياً. استخدم تصدير Excel أو CSV.');
-}
-
-// ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
 
