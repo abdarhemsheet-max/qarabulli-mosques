@@ -16,9 +16,9 @@ import {
   connectGoogleSheetsAccess,
   subscribeWorkspaceToken,
   translateAuthError,
-} from '../lib/firebase/auth';
-import { createMosque } from '../lib/firebase/mosques';
-import { saveGoogleSheetsConfig } from '../lib/firebase/sheetsConfig';
+} from '../lib/supabase/auth';
+import { createMosque } from '../lib/supabase/mosques';
+import { saveGoogleSheetsConfig } from '../lib/supabase/sheetsConfig';
 import {
   buildMosquePayloadFromSheetRow,
   createAwqafSpreadsheet,

@@ -19,8 +19,9 @@ import { GoogleSheetsModal } from '../components/GoogleSheetsModal';
 import { OsmPublishModal } from '../components/OsmPublishModal';
 import { exportMosquesToExcel } from '../lib/export/excelExport';
 import { exportMosquesToCsv, exportMosquesToKml } from '../lib/export/geoExport';
-import { deleteMosque } from '../lib/firebase/mosques';
-import { DEFAULT_OSM_SETTINGS } from '../lib/firebase/settings';
+import { GOOGLE_SHEETS_AVAILABLE } from '../lib/supabase/auth';
+import { deleteMosque } from '../lib/supabase/mosques';
+import { DEFAULT_OSM_SETTINGS } from '../lib/supabase/settings';
 import { generateGooglePlaceUrl } from '../lib/maps/googleMosques';
 import { formatEnglishDate, normalizeArabicName } from '../lib/utils/geo';
 import type {
@@ -185,6 +186,7 @@ export function MosquesListPage({
             <span>تصدير CSV</span>
           </button>
 
+          {GOOGLE_SHEETS_AVAILABLE && (
           <button
             type="button"
             onClick={() => setSheetsModalOpen(true)}
@@ -194,6 +196,7 @@ export function MosquesListPage({
             <Sheet className="w-4 h-4 text-[#0F4C3A]" />
             <span>Google Sheets</span>
           </button>
+          )}
 
           {currentUser.role === 'admin' && (
             <button

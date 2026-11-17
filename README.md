@@ -83,12 +83,18 @@ src/
 
 ---
 
-## إعداد Firebase وOpenStreetMap OAuth2
-1. تأكد من وجود ملف `firebase-applet-config.json` في جذر المشروع محتوياً على بيانات مشروعك (`projectId`, `apiKey`, `authDomain`, `appId`, `firestoreDatabaseId`).
-2. **تفعيل تسجيل الدخول بالبريد وكلمة المرور**:
-   - من لوحة تحكم Firebase افتح **Authentication > Sign-in method** وفعّل **Email/Password** (للموثّقين) و**Google** (للمدير).
-3. **نشر قواعد الأمان (`firestore.rules`)**:
-   - انشر ملف `firestore.rules` المرفق لحماية مجموعات `mosques` و`users` و`appSettings`.
-4. **إعداد OAuth2 لـ OpenStreetMap (اختياري للمدير)**:
+## إعداد Supabase (قاعدة البيانات وتسجيل الدخول)
+1. أنشئ مشروعاً جديداً في [supabase.com](https://supabase.com).
+2. من **Authentication → Sign In / Providers → Email** أوقف خيار **Confirm email** (حتى يستطيع المدير إنشاء حسابات الموثّقين مباشرة).
+3. من **Authentication → Users → Add user** أنشئ حساب المدير بالبريد `abdarhemsheet@gmail.com` مع تفعيل **Auto Confirm User**.
+4. من **SQL Editor** الصق محتوى `supabase/schema.sql` واضغط **Run** (ينشئ الجداول والصلاحيات ويربط حساب المدير).
+5. من **Project Settings → API** انسخ **Project URL** و**anon public key** وضعهما في `supabase-config.json`:
+   ```json
+   { "url": "https://xxxx.supabase.co", "anonKey": "eyJ..." }
+   ```
+   مفتاح `anon` آمن للنشر لأن كل الجداول محمية بسياسات Row Level Security.
+
+## إعداد OpenStreetMap OAuth2
+1. **إعداد OAuth2 لـ OpenStreetMap (اختياري للمدير)**:
    - أنشئ تطبيق OAuth 2.0 غير سري في OpenStreetMap مع رابط العودة `/osm-callback.html`.
    - أضف `VITE_OSM_SANDBOX_CLIENT_ID` (للخادم التجريبي) و`VITE_OSM_PROD_CLIENT_ID` (للخادم الحقيقي) في متغيرات البيئة دون وضعها داخل الكود.

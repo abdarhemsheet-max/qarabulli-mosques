@@ -16,7 +16,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { createMosque } from '../lib/firebase/mosques';
+import { createMosque } from '../lib/supabase/mosques';
 import { generateGooglePlaceUrl } from '../lib/maps/googleMosques';
 import {
   generateGoogleMapsUrl,

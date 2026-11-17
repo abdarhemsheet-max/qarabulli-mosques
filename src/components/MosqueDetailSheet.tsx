@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { MosqueRecord, OsmSettings, UserProfile } from '../types/mosque';
 import { formatEnglishDateTime, generateDirectionsUrl } from '../lib/utils/geo';
-import { DEFAULT_OSM_SETTINGS } from '../lib/firebase/settings';
+import { DEFAULT_OSM_SETTINGS } from '../lib/supabase/settings';
 import { generateGooglePlaceUrl } from '../lib/maps/googleMosques';
 import { GooglePlaceDetailsBlock } from './GooglePlaceDetailsBlock';
 import { OsmPublishModal } from './OsmPublishModal';

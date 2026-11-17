@@ -7,7 +7,7 @@ import {
   Send,
   X,
 } from 'lucide-react';
-import { linkMosqueOsmId } from '../lib/firebase/mosques';
+import { linkMosqueOsmId } from '../lib/supabase/mosques';
 import {
   getRequiredMosqueOsmTags,
   publishMosqueToOsm,

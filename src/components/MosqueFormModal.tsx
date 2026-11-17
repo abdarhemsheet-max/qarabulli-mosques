@@ -20,7 +20,7 @@ import {
   normalizeArabicName,
 } from '../lib/utils/geo';
 import { compressImageToBase64 } from '../lib/utils/image';
-import { createMosque, updateMosque } from '../lib/firebase/mosques';
+import { createMosque, updateMosque } from '../lib/supabase/mosques';
 
 interface MosqueFormModalProps {
   open: boolean;

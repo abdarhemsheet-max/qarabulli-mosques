@@ -4,8 +4,8 @@ import {
   createDocumenterUser,
   subscribeUsers,
   translateAuthError,
-} from '../lib/firebase/auth';
-import { DEFAULT_OSM_SETTINGS, saveOsmSettings } from '../lib/firebase/settings';
+} from '../lib/supabase/auth';
+import { DEFAULT_OSM_SETTINGS, saveOsmSettings } from '../lib/supabase/settings';
 import { getOsmClientId, getOsmRedirectUri } from '../lib/osm/osmPublish';
 import { formatEnglishDate } from '../lib/utils/geo';
 import type { OsmSettings, UserProfile } from '../types/mosque';

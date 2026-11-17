@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
-import { onAuthStateChanged, type User } from 'firebase/auth';
 import { BottomNav } from './components/BottomNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
 import {
   fetchOrBootstrapUserProfile,
+  getCurrentStaffUser,
   initWorkspaceTokenWatcher,
+  onStaffAuthChange,
   signOutStaff,
-} from './lib/firebase/auth';
-import { auth } from './lib/firebase/config';
-import { subscribeMosques } from './lib/firebase/mosques';
-import { DEFAULT_OSM_SETTINGS, subscribeOsmSettings } from './lib/firebase/settings';
-import { subscribeGoogleSheetsConfig } from './lib/firebase/sheetsConfig';
+  type StaffUser,
+} from './lib/supabase/auth';
+import { subscribeMosques } from './lib/supabase/mosques';
+import { DEFAULT_OSM_SETTINGS, subscribeOsmSettings } from './lib/supabase/settings';
+import { subscribeGoogleSheetsConfig } from './lib/supabase/sheetsConfig';
 import { fetchQarabulliOsmMosques } from './lib/utils/osmMosques';
 import { haversineDistanceMeters } from './lib/utils/geo';
 import { AddMosquePage } from './pages/AddMosquePage';
@@ -35,7 +36,7 @@ const GOOGLE_MAPS_API_KEY = (
 
 function MainApp() {
   const [authReady, setAuthReady] = useState(false);
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [authUser, setAuthUser] = useState<StaffUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authBanner, setAuthBanner] = useState<{
     type: 'verify-email' | 'no-profile';
@@ -91,7 +92,7 @@ function MainApp() {
     });
   }, []);
 
-  const loadUserProfile = useCallback(async (user: User) => {
+  const loadUserProfile = useCallback(async (user: StaffUser) => {
     const { profile, needsVerificationForBootstrap } =
       await fetchOrBootstrapUserProfile(user);
 
@@ -107,15 +108,15 @@ function MainApp() {
     }
   }, []);
 
-  // Clear in-memory Google Workspace OAuth token on Firebase sign-out
+  // Clear in-memory Google Workspace OAuth token on sign-out
   useEffect(() => {
     return initWorkspaceTokenWatcher();
   }, []);
 
-  // Listen to Firebase Auth state
+  // Listen to Supabase Auth state
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
+    const unsub = onStaffAuthChange(async (user) => {
+      setAuthUser(user);
       if (user) {
         try {
           await loadUserProfile(user);
@@ -209,10 +210,10 @@ function MainApp() {
   );
 
   const handleRefreshProfile = async () => {
-    if (!firebaseUser) return;
-    await firebaseUser.reload();
-    if (auth.currentUser) {
-      await loadUserProfile(auth.currentUser);
+    if (!authUser) return;
+    const current = await getCurrentStaffUser();
+    if (current) {
+      await loadUserProfile(current);
     }
   };
 
@@ -249,7 +250,7 @@ function MainApp() {
         <p className="text-sm font-semibold text-[#0F4C3A]">جاري التحقق من الجلسة...</p>
       </div>
     );
-  } else if (!firebaseUser || !userProfile) {
+  } else if (!authUser || !userProfile) {
     content = (
       <LoginPage
         authBanner={authBanner}

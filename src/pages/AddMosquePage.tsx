@@ -5,7 +5,7 @@ import { GoogleMosqueMap } from '../components/GoogleMosqueMap';
 import { MosqueDetailSheet } from '../components/MosqueDetailSheet';
 import { MosqueFormModal } from '../components/MosqueFormModal';
 import { OsmCandidateSheet } from '../components/OsmCandidateSheet';
-import { DEFAULT_OSM_SETTINGS } from '../lib/firebase/settings';
+import { DEFAULT_OSM_SETTINGS } from '../lib/supabase/settings';
 import {
   haversineDistanceMeters,
   parseGoogleMapsInput,

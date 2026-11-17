@@ -1,5 +1,5 @@
 import type { MosqueFormValues, MosqueRecord } from '../../types/mosque';
-import { clearWorkspaceAccessToken } from '../firebase/auth';
+import { clearWorkspaceAccessToken } from '../supabase/auth';
 import { formatEnglishDate } from '../utils/geo';
 
 export interface DriveSpreadsheetItem {
