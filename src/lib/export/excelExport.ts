@@ -6,7 +6,7 @@ const HEADERS = [
   'م',
   'اسم المسجد',
   'المحلة / المنطقة',
-  'رابط الموقع (خرائط جوجل)',
+  'رابط الموقع',
   'علامة دالة',
   'ملاحظات',
   'الاسم المتداول',
@@ -15,15 +15,21 @@ const HEADERS = [
   'عدد الصور',
   'الموثِّق',
   'تاريخ ووقت التوثيق',
-  'خرائط جوجل',
-  'أرسله لجوجل',
+  'الخريطة المفتوحة (OSM)',
+  'نشره',
+  'رابط OpenStreetMap',
 ];
 
-const GOOGLE_STATUS_LABEL = {
-  not_submitted: 'لم يُرسل',
-  submitted: 'أُرسل — بانتظار المراجعة',
-  live: 'ظاهر في جوجل',
+const MAP_STATUS_LABEL = {
+  none: 'غير منشور',
+  linked: 'موجود — يحتاج تحديث',
+  published: 'منشور',
 } as const;
+
+function osmUrl(osmId?: string): string {
+  const m = /^(node|way|relation)_(\d+)$/.exec(osmId ?? '');
+  return m ? `https://www.openstreetmap.org/${m[1]}/${m[2]}` : '';
+}
 
 const HEADER_STYLE = {
   font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 12, name: 'Cairo' },
@@ -73,10 +79,11 @@ export function exportMosquesToExcel(mosques: MosqueRecord[]): void {
     m.photoCount ?? m.photos.length,
     m.createdByName,
     formatEnglishDateTime(m.createdAt),
-    GOOGLE_STATUS_LABEL[m.googleMapsStatus] ?? GOOGLE_STATUS_LABEL.not_submitted,
-    m.googleMapsSubmittedByName
-      ? `${m.googleMapsSubmittedByName}${m.googleMapsSubmittedAt ? ` (${formatEnglishDateTime(m.googleMapsSubmittedAt)})` : ''}`
+    MAP_STATUS_LABEL[m.mapStatus],
+    m.osmPublishedByName
+      ? `${m.osmPublishedByName}${m.osmPublishedAt ? ` (${formatEnglishDateTime(m.osmPublishedAt)})` : ''}`
       : '',
+    osmUrl(m.osmId),
   ]);
 
   const aoa = [HEADERS, ...rows];
@@ -123,7 +130,7 @@ export function exportMosquesToExcel(mosques: MosqueRecord[]): void {
   }
 
   // Ensure sensible minimum column widths
-  const minWidths = [6, 26, 20, 40, 26, 28, 22, 13, 13, 12, 20, 19, 22, 30];
+  const minWidths = [6, 26, 20, 40, 26, 28, 22, 13, 13, 12, 20, 19, 20, 30, 40];
   ws['!cols'] = colWidths.map((w, idx) => ({ wch: Math.max(w, minWidths[idx] ?? 14) }));
 
   // Header row height

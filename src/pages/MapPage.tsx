@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ExternalLink, Layers, LocateFixed, MapPinPlus, Search, X } from 'lucide-react';
+import { Check, Layers, LocateFixed, MapPinPlus, Search, X } from 'lucide-react';
 import type { LatLng, MosqueRecord, OsmMosqueCandidate, OsmSettings, UserProfile } from '../types/mosque';
 import { MosqueMap, type MosqueMapHandle } from '../components/map/MosqueMap';
 import { LocationCard } from '../components/map/LocationCard';
 import { MosqueFormSheet } from '../components/MosqueFormSheet';
 import { MosqueSheet } from '../components/MosqueSheet';
-import { BottomSheet } from '../components/ui/BottomSheet';
 import { useUserLocation } from '../lib/location/useUserLocation';
 import { updateMosque } from '../lib/supabase/mosques';
-import {
-  formatDistance,
-  generateGoogleMapsPlaceUrl,
-  haversineDistanceMeters,
-  normalizeArabicName,
-} from '../lib/utils/geo';
+import { formatDistance, haversineDistanceMeters, normalizeArabicName } from '../lib/utils/geo';
+import { OsmCandidateSheet } from '../components/map/OsmCandidateSheet';
 
 export interface MapFocusRequest {
   lat: number;
@@ -381,50 +376,18 @@ export function MapPage({ mosques, osmCandidates, currentUser, osmSettings, focu
 
       {/* ----------------------------------------------------------- sheets */}
       {selectedOsm && (
-        <BottomSheet
-          open
+        <OsmCandidateSheet
+          candidate={selectedOsm}
+          distanceMeters={
+            loc.position
+              ? haversineDistanceMeters(loc.position.lat, loc.position.lng, selectedOsm.lat, selectedOsm.lng)
+              : null
+          }
           onClose={() => setSelectedOsm(null)}
-          title={selectedOsm.nameAr || selectedOsm.nameRaw || selectedOsm.name || 'مسجد'}
-          subtitle="مسجد موجود على الخريطة العامة ولم يُوثَّق بعد"
-        >
-          <div className="p-4 sm:p-5 space-y-2.5 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <button
-              type="button"
-              onClick={() =>
-                startPlacing(
-                  {
-                    kind: 'new',
-                    prefillName: selectedOsm.nameAr || selectedOsm.nameRaw || selectedOsm.name,
-                    prefillOsmId: selectedOsm.osmId,
-                  },
-                  selectedOsm
-                )
-              }
-              className="btn-primary w-full h-14 text-base"
-            >
-              <MapPinPlus className="w-5 h-5 text-gold" />
-              وثّق هذا المسجد
-            </button>
-            <a
-              href={generateGoogleMapsPlaceUrl(
-                selectedOsm.nameAr || selectedOsm.nameRaw || selectedOsm.name,
-                selectedOsm.lat,
-                selectedOsm.lng
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-outline w-full h-12 text-sm"
-            >
-              <ExternalLink className="w-4 h-4" />
-              عرضه في خرائط جوجل
-            </a>
-            {loc.position && (
-              <p className="text-center text-xs text-muted">
-                يبعد عنك {formatDistance(haversineDistanceMeters(loc.position.lat, loc.position.lng, selectedOsm.lat, selectedOsm.lng))}
-              </p>
-            )}
-          </div>
-        </BottomSheet>
+          onDocument={(c, name) =>
+            startPlacing({ kind: 'new', prefillName: name, prefillOsmId: c.osmId }, c)
+          }
+        />
       )}
 
       {selectedMosque && !formOpen && (
@@ -451,6 +414,7 @@ export function MapPage({ mosques, osmCandidates, currentUser, osmSettings, focu
         prefillOsmId={formPrefill.osmId}
         existingMosques={mosques}
         currentUser={currentUser}
+        osmSettings={osmSettings}
         onClose={() => {
           setFormOpen(false);
           setEditing(null);

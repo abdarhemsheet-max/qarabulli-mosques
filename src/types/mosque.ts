@@ -9,7 +9,12 @@ export interface UserProfile {
   createdBy: string;
 }
 
-export type GoogleMapsStatus = 'not_submitted' | 'submitted' | 'live';
+/**
+ * none      – not on OpenStreetMap
+ * linked    – exists on OpenStreetMap (found there) but not updated by the office yet
+ * published – the office published/updated it on OpenStreetMap
+ */
+export type MapStatus = 'none' | 'linked' | 'published';
 
 export interface MosqueRecord {
   id: string;
@@ -31,9 +36,9 @@ export interface MosqueRecord {
   createdAt: Date | null;
   updatedAt: Date | null;
   updatedBy: string;
-  googleMapsStatus: GoogleMapsStatus;
-  googleMapsSubmittedAt: Date | null;
-  googleMapsSubmittedByName: string;
+  mapStatus: MapStatus;
+  osmPublishedAt: Date | null;
+  osmPublishedByName: string;
   hasPendingWrites?: boolean;
 }
 

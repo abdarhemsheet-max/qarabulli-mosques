@@ -9,12 +9,12 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import type { LatLng, MosqueFormValues, MosqueRecord, UserProfile } from '../types/mosque';
+import type { LatLng, MosqueFormValues, MosqueRecord, OsmSettings, UserProfile } from '../types/mosque';
 import { haversineDistanceMeters, normalizeArabicName } from '../lib/utils/geo';
 import { compressImageToBase64 } from '../lib/utils/image';
 import { createMosque, updateMosque } from '../lib/supabase/mosques';
 import { BottomSheet } from './ui/BottomSheet';
-import { GoogleMapsPublishCard } from './GoogleMapsPublishCard';
+import { OsmPublishCard } from './OsmPublishCard';
 
 const LAST_LOCALITY_KEY = 'qarabulli_last_locality';
 const MAX_PHOTOS = 3;
@@ -27,6 +27,7 @@ interface MosqueFormSheetProps {
   prefillOsmId?: string;
   existingMosques: MosqueRecord[];
   currentUser: UserProfile;
+  osmSettings: OsmSettings;
   onClose: () => void;
   onChangeLocation: () => void;
   onEditExisting: (mosque: MosqueRecord) => void;
@@ -55,6 +56,7 @@ export function MosqueFormSheet({
   prefillOsmId = '',
   existingMosques,
   currentUser,
+  osmSettings,
   onClose,
   onChangeLocation,
   onEditExisting,
@@ -238,10 +240,7 @@ export function MosqueFormSheet({
               {officialName} · {locality}
             </p>
           </div>
-          <GoogleMapsPublishCard
-            subject={{ id: savedId, officialName: officialName.trim(), lat, lng, photos, googlePlaceId: editing?.googlePlaceId }}
-            liveRecord={savedRecord}
-          />
+          <OsmPublishCard mosque={savedRecord} currentUser={currentUser} osmSettings={osmSettings} />
         </div>
       </BottomSheet>
     );

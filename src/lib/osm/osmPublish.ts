@@ -1,31 +1,61 @@
 import { osmAuth, OSMAuthError } from 'osm-auth';
+import osmConfig from '../../../osm-config.json';
 import type { MosqueRecord } from '../../types/mosque';
 
-export const OSM_SANDBOX_URL = 'https://master.apis.dev.openstreetmap.org';
-export const OSM_PROD_WEB_URL = 'https://www.openstreetmap.org';
-export const OSM_PROD_API_URL = 'https://api.openstreetmap.org';
+export const OSM_WEB_URL = 'https://www.openstreetmap.org';
+export const OSM_API_URL = 'https://api.openstreetmap.org';
+
+/**
+ * Public OAuth2 client ID of the office's OpenStreetMap app (not a secret:
+ * OSM "public" apps use PKCE). Set once in osm-config.json.
+ */
+export function getOsmClientId(): string {
+  return ((import.meta.env.VITE_OSM_CLIENT_ID as string | undefined) || osmConfig.clientId || '').trim();
+}
+
+export function isOsmPublishingConfigured(): boolean {
+  return Boolean(getOsmClientId());
+}
 
 export function getOsmRedirectUri(): string {
-  const custom = (import.meta.env.VITE_OSM_REDIRECT_URI ?? '').trim();
-  if (custom) return custom;
   const baseUrl = import.meta.env.BASE_URL || '/';
   return new URL(`${baseUrl}osm-callback.html`, window.location.origin).toString();
 }
 
-export function getOsmClientId(useProduction: boolean): string {
-  const sandboxId = (import.meta.env.VITE_OSM_SANDBOX_CLIENT_ID ?? '').trim();
-  const prodId = (import.meta.env.VITE_OSM_PROD_CLIENT_ID ?? '').trim();
-  const sharedId = (import.meta.env.VITE_OSM_CLIENT_ID ?? '').trim();
-  return useProduction ? prodId || sharedId : sandboxId || sharedId;
+export interface ParsedOsmId {
+  type: 'node' | 'way' | 'relation';
+  id: number;
 }
 
-export function getOsmServerUrls(useProduction: boolean) {
-  return useProduction
-    ? { webUrl: OSM_PROD_WEB_URL, apiUrl: OSM_PROD_API_URL }
-    : { webUrl: OSM_SANDBOX_URL, apiUrl: OSM_SANDBOX_URL };
+export function parseOsmId(osmId?: string): ParsedOsmId | null {
+  const m = /^(node|way|relation)_(\d+)$/.exec((osmId ?? '').trim());
+  return m ? { type: m[1] as ParsedOsmId['type'], id: Number(m[2]) } : null;
 }
 
-function escapeXmlAttr(value: string): string {
+export function osmElementUrl(osmId?: string): string | null {
+  const p = parseOsmId(osmId);
+  return p ? `${OSM_WEB_URL}/${p.type}/${p.id}` : null;
+}
+
+/** Read an element's tags from the public OSM API (no login needed). */
+export async function fetchOsmTags(osmId: string): Promise<Record<string, string> | null> {
+  const p = parseOsmId(osmId);
+  if (!p) return null;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${OSM_API_URL}/api/0.6/${p.type}/${p.id}.json`, { signal: controller.signal });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { elements?: { tags?: Record<string, string> }[] };
+    return json.elements?.[0]?.tags ?? {};
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -34,216 +64,138 @@ function escapeXmlAttr(value: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function parseLinkedOsmId(osmId?: string): { type: 'node' | 'way' | 'relation'; id: number } | null {
-  if (!osmId) return null;
-  const match = /^(node|way|relation)_(\d+)$/.exec(osmId.trim());
-  if (!match) return null;
-  return {
-    type: match[1] as 'node' | 'way' | 'relation',
-    id: Number(match[2]),
-  };
-}
-
-export function getRequiredMosqueOsmTags(mosque: MosqueRecord): Record<string, string> {
-  return {
+/** Tags the office publishes for a mosque (correct OSM tagging for a point). */
+export function mosqueOsmTags(mosque: Pick<MosqueRecord, 'officialName' | 'commonName'>): Record<string, string> {
+  const tags: Record<string, string> = {
     amenity: 'place_of_worship',
     religion: 'muslim',
-    building: 'mosque',
     name: mosque.officialName.trim(),
     'name:ar': mosque.officialName.trim(),
   };
+  const common = mosque.commonName.trim();
+  if (common && common !== mosque.officialName.trim()) tags.alt_name = common;
+  return tags;
 }
 
-function buildUpdatedElementXml(
-  docXml: Document,
-  elementType: 'node' | 'way',
-  elementId: number,
-  changesetId: string,
-  requiredTags: Record<string, string>
-): string {
-  const el = docXml.querySelector(elementType);
-  if (!el) {
-    throw new Error('تعذّر قراءة بيانات العنصر من خادم OpenStreetMap.');
-  }
-  const version = el.getAttribute('version') ?? '1';
-  const mergedTags = new Map<string, string>();
-
-  el.querySelectorAll(':scope > tag').forEach((tagNode) => {
-    const k = tagNode.getAttribute('k');
-    const v = tagNode.getAttribute('v');
-    if (k && v !== null) mergedTags.set(k, v);
-  });
-
-  Object.entries(requiredTags).forEach(([k, v]) => {
-    if (v) mergedTags.set(k, v);
-  });
-
-  const tagLines = Array.from(mergedTags.entries())
-    .map(([k, v]) => `    <tag k="${escapeXmlAttr(k)}" v="${escapeXmlAttr(v)}" />`)
+function tagLines(tags: Map<string, string> | Record<string, string>): string {
+  const entries = tags instanceof Map ? [...tags.entries()] : Object.entries(tags);
+  return entries
+    .filter(([, v]) => Boolean(v))
+    .map(([k, v]) => `    <tag k="${escapeXml(k)}" v="${escapeXml(v)}" />`)
     .join('\n');
-
-  if (elementType === 'node') {
-    const lat = el.getAttribute('lat');
-    const lon = el.getAttribute('lon');
-    return `<osm>
-  <node id="${elementId}" changeset="${escapeXmlAttr(changesetId)}" version="${escapeXmlAttr(version)}" lat="${escapeXmlAttr(lat ?? '')}" lon="${escapeXmlAttr(lon ?? '')}">
-${tagLines}
-  </node>
-</osm>`;
-  }
-
-  const ndLines = Array.from(el.querySelectorAll(':scope > nd'))
-    .map((nd) => `    <nd ref="${escapeXmlAttr(nd.getAttribute('ref') ?? '')}" />`)
-    .join('\n');
-
-  return `<osm>
-  <way id="${elementId}" changeset="${escapeXmlAttr(changesetId)}" version="${escapeXmlAttr(version)}">
-${ndLines}
-${tagLines}
-  </way>
-</osm>`;
 }
 
 export interface OsmPublishResult {
-  changesetId: string;
-  changesetUrl: string;
+  osmId: string;
   elementUrl: string;
-  newOsmId: string;
+  changesetUrl: string;
   action: 'updated' | 'created';
-  serverLabel: string;
 }
 
-export async function publishMosqueToOsm(
-  mosque: MosqueRecord,
-  useProduction: boolean
-): Promise<OsmPublishResult> {
-  const clientId = getOsmClientId(useProduction);
+export async function publishMosqueToOsm(mosque: MosqueRecord): Promise<OsmPublishResult> {
+  const clientId = getOsmClientId();
   if (!clientId) {
-    const envVarName = useProduction ? 'VITE_OSM_PROD_CLIENT_ID' : 'VITE_OSM_SANDBOX_CLIENT_ID';
-    throw new Error(
-      `لم يتم ضبط معرف عميل OAuth2 في متغير البيئة (${envVarName}). أضفه في إعدادات البيئة مع عنوان العودة: ${getOsmRedirectUri()}`
-    );
+    throw new Error('لم يُربط حساب المكتب في OpenStreetMap بعد. راجع مدير المكتب (شاشة الإدارة).');
   }
 
-  const { webUrl, apiUrl } = getOsmServerUrls(useProduction);
   const auth = new osmAuth({
-    url: webUrl,
-    apiUrl,
+    url: OSM_WEB_URL,
+    apiUrl: OSM_API_URL,
     client_id: clientId,
     redirect_uri: getOsmRedirectUri(),
-    scope: 'write_api',
+    scope: 'read_prefs write_api',
   });
 
   try {
     await auth.authenticateAsync();
   } catch (err) {
     if (err instanceof OSMAuthError) {
-      if (err.code === 'popup-blocked') {
-        throw new Error('قام المتصفح بحظر نافذة تسجيل الدخول. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
-      }
-      if (err.code === 'access_denied') {
-        throw new Error('تم إلغاء تفويض الدخول لحساب OpenStreetMap.');
-      }
-      throw new Error(`تعذّر تسجيل الدخول إلى OpenStreetMap: ${err.message}`);
+      if (err.code === 'popup-blocked') throw new Error('المتصفح منع نافذة الدخول. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.');
+      if (err.code === 'access_denied') throw new Error('تم إلغاء الدخول إلى OpenStreetMap.');
+      throw new Error(`تعذّر الدخول إلى OpenStreetMap: ${err.message}`);
     }
     throw err;
   }
 
-  const tags = getRequiredMosqueOsmTags(mosque);
-  const changesetXml = `<osm>
-  <changeset>
-    <tag k="created_by" v="توثيق مساجد مكتب أوقاف القره بوللي" />
-    <tag k="comment" v="توثيق/تحديث بيانات ${escapeXmlAttr(mosque.officialName)} (${escapeXmlAttr(mosque.locality)})" />
-  </changeset>
-</osm>`;
-
-  const createCsRes = await auth.fetch(`${apiUrl}/api/0.6/changeset/create`, {
+  const tags = mosqueOsmTags(mosque);
+  const csRes = await auth.fetch(`${OSM_API_URL}/api/0.6/changeset/create`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/xml; charset=utf-8' },
-    body: changesetXml,
+    body: `<osm>
+  <changeset>
+    <tag k="created_by" v="Qarabulli Awqaf mosque survey app" />
+    <tag k="comment" v="${escapeXml(`توثيق ميداني: ${mosque.officialName} (${mosque.locality}) — مكتب أوقاف القره بوللي`)}" />
+    <tag k="source" v="survey" />
+  </changeset>
+</osm>`,
   });
-
-  if (!createCsRes.ok) {
-    const errText = await createCsRes.text();
-    throw new Error(`تعذّر فتح حزمة التعديل (Changeset) في OSM: ${errText || createCsRes.status}`);
-  }
-
-  const changesetId = (await createCsRes.text()).trim();
+  if (!csRes.ok) throw new Error(`تعذّر بدء التعديل في OpenStreetMap (${csRes.status}).`);
+  const changesetId = (await csRes.text()).trim();
 
   try {
-    const linked = parseLinkedOsmId(mosque.osmId);
-    let finalType: 'node' | 'way' = 'node';
-    let finalNumericId = 0;
-    let action: 'updated' | 'created' = 'created';
+    const linked = parseOsmId(mosque.osmId);
 
-    if (linked && (linked.type === 'node' || linked.type === 'way')) {
-      const getRes = await auth.fetch(`${apiUrl}/api/0.6/${linked.type}/${linked.id}`, {
-        method: 'GET',
-      });
-
+    if (linked && linked.type !== 'relation') {
+      const getRes = await auth.fetch(`${OSM_API_URL}/api/0.6/${linked.type}/${linked.id}`, { method: 'GET' });
       if (getRes.ok) {
-        const rawXml = await getRes.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(rawXml, 'application/xml');
-        const updatedBody = buildUpdatedElementXml(
-          xmlDoc,
-          linked.type,
-          linked.id,
-          changesetId,
-          tags
-        );
-        const putRes = await auth.fetch(`${apiUrl}/api/0.6/${linked.type}/${linked.id}`, {
+        const doc = new DOMParser().parseFromString(await getRes.text(), 'application/xml');
+        const el = doc.querySelector(linked.type);
+        if (!el) throw new Error('تعذّر قراءة العنصر من OpenStreetMap.');
+        const merged = new Map<string, string>();
+        el.querySelectorAll(':scope > tag').forEach((t) => {
+          const k = t.getAttribute('k');
+          const v = t.getAttribute('v');
+          if (k && v !== null) merged.set(k, v);
+        });
+        Object.entries(tags).forEach(([k, v]) => v && merged.set(k, v));
+        const version = el.getAttribute('version') ?? '1';
+        const body =
+          linked.type === 'node'
+            ? `<osm>
+  <node id="${linked.id}" changeset="${changesetId}" version="${escapeXml(version)}" lat="${escapeXml(el.getAttribute('lat') ?? '')}" lon="${escapeXml(el.getAttribute('lon') ?? '')}">
+${tagLines(merged)}
+  </node>
+</osm>`
+            : `<osm>
+  <way id="${linked.id}" changeset="${changesetId}" version="${escapeXml(version)}">
+${[...el.querySelectorAll(':scope > nd')].map((nd) => `    <nd ref="${escapeXml(nd.getAttribute('ref') ?? '')}" />`).join('\n')}
+${tagLines(merged)}
+  </way>
+</osm>`;
+        const putRes = await auth.fetch(`${OSM_API_URL}/api/0.6/${linked.type}/${linked.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/xml; charset=utf-8' },
-          body: updatedBody,
+          body,
         });
-        if (!putRes.ok) {
-          const msg = await putRes.text();
-          throw new Error(`تعذّر تحديث العنصر في OSM: ${msg || putRes.status}`);
-        }
-        finalType = linked.type;
-        finalNumericId = linked.id;
-        action = 'updated';
+        if (!putRes.ok) throw new Error(`تعذّر تحديث المسجد في OpenStreetMap (${putRes.status}).`);
+        const osmId = `${linked.type}_${linked.id}`;
+        return {
+          osmId,
+          elementUrl: osmElementUrl(osmId)!,
+          changesetUrl: `${OSM_WEB_URL}/changeset/${changesetId}`,
+          action: 'updated',
+        };
       }
     }
 
-    if (action === 'created') {
-      const tagLines = Object.entries(tags)
-        .filter(([, v]) => Boolean(v))
-        .map(([k, v]) => `    <tag k="${escapeXmlAttr(k)}" v="${escapeXmlAttr(v)}" />`)
-        .join('\n');
-
-      const nodeXml = `<osm>
-  <node changeset="${escapeXmlAttr(changesetId)}" lat="${mosque.lat.toFixed(6)}" lon="${mosque.lng.toFixed(6)}">
-${tagLines}
+    const createRes = await auth.fetch(`${OSM_API_URL}/api/0.6/node/create`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+      body: `<osm>
+  <node changeset="${changesetId}" lat="${mosque.lat.toFixed(7)}" lon="${mosque.lng.toFixed(7)}">
+${tagLines(tags)}
   </node>
-</osm>`;
-
-      const createNodeRes = await auth.fetch(`${apiUrl}/api/0.6/node/create`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/xml; charset=utf-8' },
-        body: nodeXml,
-      });
-
-      if (!createNodeRes.ok) {
-        const msg = await createNodeRes.text();
-        throw new Error(`تعذّر إنشاء نقطة المسجد في OSM: ${msg || createNodeRes.status}`);
-      }
-      finalType = 'node';
-      finalNumericId = Number((await createNodeRes.text()).trim());
-    }
-
+</osm>`,
+    });
+    if (!createRes.ok) throw new Error(`تعذّر إضافة المسجد إلى OpenStreetMap (${createRes.status}).`);
+    const osmId = `node_${(await createRes.text()).trim()}`;
     return {
-      changesetId,
-      changesetUrl: `${webUrl}/changeset/${changesetId}`,
-      elementUrl: `${webUrl}/${finalType}/${finalNumericId}`,
-      newOsmId: `${finalType}_${finalNumericId}`,
-      action,
-      serverLabel: useProduction ? 'openstreetmap.org (الحقيقي)' : 'master.apis.dev.openstreetmap.org (التجريبي)',
+      osmId,
+      elementUrl: osmElementUrl(osmId)!,
+      changesetUrl: `${OSM_WEB_URL}/changeset/${changesetId}`,
+      action: 'created',
     };
   } finally {
-    await auth
-      .fetch(`${apiUrl}/api/0.6/changeset/${changesetId}/close`, { method: 'PUT' })
-      .catch(() => undefined);
+    await auth.fetch(`${OSM_API_URL}/api/0.6/changeset/${changesetId}/close`, { method: 'PUT' }).catch(() => undefined);
   }
 }

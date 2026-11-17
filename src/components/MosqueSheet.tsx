@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { Globe, Move, Navigation, Pencil, Share2, Trash2, User, Clock, MapPin, Landmark, StickyNote, X } from 'lucide-react';
+import { Move, Navigation, Pencil, Share2, Trash2, User, Clock, MapPin, Landmark, StickyNote, X } from 'lucide-react';
 import type { MosqueRecord, OsmSettings, UserProfile } from '../types/mosque';
 import { formatEnglishDateTime, generateDirectionsUrl } from '../lib/utils/geo';
 import { deleteMosque } from '../lib/supabase/mosques';
 import { BottomSheet } from './ui/BottomSheet';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { GoogleStatusBadge } from './ui/GoogleStatusBadge';
-import { GoogleMapsPublishCard } from './GoogleMapsPublishCard';
-import { OsmPublishModal } from './OsmPublishModal';
+import { MapStatusBadge } from './ui/MapStatusBadge';
+import { OsmPublishCard } from './OsmPublishCard';
 
 interface MosqueSheetProps {
   mosque: MosqueRecord | null;
@@ -45,7 +44,6 @@ export function MosqueSheet({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [osmOpen, setOsmOpen] = useState(false);
 
   if (!mosque) return null;
   const canEdit = currentUser.role === 'admin' || mosque.createdBy === currentUser.uid;
@@ -92,7 +90,7 @@ export function MosqueSheet({
         subtitle={
           <span className="flex items-center gap-2 flex-wrap">
             <span>{mosque.locality}</span>
-            <GoogleStatusBadge status={mosque.googleMapsStatus} />
+            <MapStatusBadge status={mosque.mapStatus} />
           </span>
         }
       >
@@ -115,7 +113,7 @@ export function MosqueSheet({
           {/* Quick actions */}
           <div className="grid grid-cols-4 gap-2 px-4 sm:px-5 pt-4">
             <a
-              href={generateDirectionsUrl(mosque.lat, mosque.lng)}
+              href={generateDirectionsUrl(mosque.lat, mosque.lng, mosque.officialName)}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-outline flex-col h-16 text-xs gap-1"
@@ -172,14 +170,7 @@ export function MosqueSheet({
           </div>
 
           <div className="px-4 sm:px-5 pt-2 space-y-3">
-            <GoogleMapsPublishCard subject={mosque} liveRecord={mosque} />
-
-            {osmSettings.osmPublishEnabled && (
-              <button type="button" onClick={() => setOsmOpen(true)} className="btn-outline w-full h-11 text-sm">
-                <Globe className="w-4 h-4 text-brand" />
-                نشر في OpenStreetMap
-              </button>
-            )}
+            <OsmPublishCard mosque={mosque} currentUser={currentUser} osmSettings={osmSettings} />
 
             {canEdit && (
               <button
@@ -218,15 +209,6 @@ export function MosqueSheet({
         onConfirm={() => void remove()}
         onCancel={() => setConfirmDelete(false)}
       />
-
-      {osmOpen && (
-        <OsmPublishModal
-          mosque={mosque}
-          osmSettings={osmSettings}
-          currentUser={currentUser}
-          onClose={() => setOsmOpen(false)}
-        />
-      )}
     </>
   );
 }

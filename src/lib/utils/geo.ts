@@ -8,35 +8,22 @@ export function generateGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
 }
 
-export function generateDirectionsUrl(lat: number, lng: number): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lng.toFixed(6)}`;
-}
-
-/** Drops a pin at the exact coordinates (used to add a missing place). */
-export function generateGoogleMapsSearchUrl(lat: number, lng: number, placeId?: string): string {
-  const base = `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
-  return placeId ? `${base}&query_place_id=${encodeURIComponent(placeId)}` : base;
-}
-
-function isGenericMosqueName(name: string): boolean {
-  const n = name.trim();
-  return !n || n === 'مسجد' || n === 'جامع' || /بدون اسم/.test(n) || /^mosque$/i.test(n);
-}
-
 /**
- * Opens the mosque's own place card in Google Maps: searches its name around
- * its coordinates (Google jumps straight to the place when it matches).
- * Falls back to "mosques around this spot" when the name is generic.
+ * Navigation link that opens the phone's own maps app (free, no Google key):
+ * Android → geo: intent (any installed maps app), iPhone → Apple Maps,
+ * desktop → OpenStreetMap directions.
  */
-export function generateGoogleMapsPlaceUrl(name: string, lat: number, lng: number, placeId?: string): string {
-  if (placeId) return generateGoogleMapsSearchUrl(lat, lng, placeId);
-  if (isGenericMosqueName(name)) return generateGoogleMapsNearbyMosquesUrl(lat, lng);
-  return `https://www.google.com/maps/search/${encodeURIComponent(name.trim())}/@${lat.toFixed(6)},${lng.toFixed(6)},18z`;
+export function generateDirectionsUrl(lat: number, lng: number, name = ''): string {
+  const ll = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  if (/Android/i.test(ua)) return `geo:${ll}?q=${ll}(${encodeURIComponent(name || 'مسجد')})`;
+  if (/iPhone|iPad|iPod/i.test(ua)) return `https://maps.apple.com/?daddr=${ll}&q=${encodeURIComponent(name || 'مسجد')}`;
+  return `https://www.openstreetmap.org/directions?route=%3B${encodeURIComponent(ll)}#map=17/${lat.toFixed(5)}/${lng.toFixed(5)}`;
 }
 
-/** Lists the mosques Google already knows around this spot. */
-export function generateGoogleMapsNearbyMosquesUrl(lat: number, lng: number): string {
-  return `https://www.google.com/maps/search/${encodeURIComponent('مسجد')}/@${lat.toFixed(6)},${lng.toFixed(6)},18z`;
+/** View a spot on OpenStreetMap. */
+export function generateOsmViewUrl(lat: number, lng: number): string {
+  return `https://www.openstreetmap.org/?mlat=${lat.toFixed(6)}&mlon=${lng.toFixed(6)}#map=18/${lat.toFixed(5)}/${lng.toFixed(5)}`;
 }
 
 export function formatDistance(meters: number): string {

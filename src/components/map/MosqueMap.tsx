@@ -184,7 +184,7 @@ export const MosqueMap = forwardRef<MosqueMapHandle, MosqueMapProps>(function Mo
 
     mosques.forEach((mosque) => {
       const m = L.marker([mosque.lat, mosque.lng], {
-        icon: mosque.googleMapsStatus === 'live' ? ICONS.live : ICONS.documented,
+        icon: mosque.mapStatus === 'published' ? ICONS.live : ICONS.documented,
         interactive: !placing,
         opacity: placing ? 0.55 : 1,
         zIndexOffset: 200,

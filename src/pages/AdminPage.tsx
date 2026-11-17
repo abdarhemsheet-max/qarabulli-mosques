@@ -5,6 +5,7 @@ import { createDocumenterUser, subscribeUsers, translateAuthError } from '../lib
 import { saveOsmSettings } from '../lib/supabase/settings';
 import { exportExcel } from '../lib/export/lazyExport';
 import { timeAgoArabic } from '../lib/utils/geo';
+import { getOsmRedirectUri, isOsmPublishingConfigured } from '../lib/osm/osmPublish';
 
 interface AdminPageProps {
   mosques: MosqueRecord[];
@@ -48,7 +49,7 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
     startOfToday.setHours(0, 0, 0, 0);
     let today = 0;
     let week = 0;
-    const google = { not_submitted: 0, submitted: 0, live: 0 };
+    const map = { none: 0, linked: 0, published: 0 };
     const byUser = new Map<string, { name: string; total: number; week: number; last: Date | null }>();
     const byLocality = new Map<string, number>();
     let withPhotos = 0;
@@ -57,7 +58,7 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
       const t = m.createdAt?.getTime() ?? 0;
       if (t >= startOfToday.getTime()) today += 1;
       if (now - t <= 7 * DAY) week += 1;
-      google[m.googleMapsStatus] += 1;
+      map[m.mapStatus] += 1;
       if (m.photos.length > 0) withPhotos += 1;
       const u = byUser.get(m.createdBy) ?? { name: m.createdByName, total: 0, week: 0, last: null };
       u.total += 1;
@@ -71,7 +72,7 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
     return {
       today,
       week,
-      google,
+      map,
       withPhotos,
       byUser: [...byUser.entries()].sort((a, b) => b[1].total - a[1].total),
       byLocality: [...byLocality.entries()].sort((a, b) => b[1] - a[1]),
@@ -79,6 +80,7 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
   }, [mosques]);
 
   const total = mosques.length;
+  const osmConfigured = isOsmPublishingConfigured();
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
 
   const addUser = async (e: FormEvent) => {
@@ -139,28 +141,28 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
           تنزيل تقرير Excel الكامل
         </button>
 
-        {/* Google progress */}
+        {/* Open map progress */}
         <section className="card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-extrabold text-ink">التقدّم في خرائط جوجل</h2>
-            <span className="text-sm font-bold text-brand tabular-nums">{pct(stats.google.live)}% ظاهر</span>
+            <h2 className="font-extrabold text-ink">النشر في الخريطة المفتوحة</h2>
+            <span className="text-sm font-bold text-brand tabular-nums">{pct(stats.map.published)}% منشور</span>
           </div>
           <div className="h-3 rounded-full bg-sand overflow-hidden flex">
-            <div className="bg-brand" style={{ width: `${pct(stats.google.live)}%` }} />
-            <div className="bg-amber-400" style={{ width: `${pct(stats.google.submitted)}%` }} />
+            <div className="bg-brand" style={{ width: `${pct(stats.map.published)}%` }} />
+            <div className="bg-amber-400" style={{ width: `${pct(stats.map.linked)}%` }} />
           </div>
           <div className="grid grid-cols-3 text-center text-xs">
             <div>
-              <p className="text-lg font-black text-brand tabular-nums">{stats.google.live}</p>
-              <p className="text-muted">ظاهر</p>
+              <p className="text-lg font-black text-brand tabular-nums">{stats.map.published}</p>
+              <p className="text-muted">منشور</p>
             </div>
             <div>
-              <p className="text-lg font-black text-amber-600 tabular-nums">{stats.google.submitted}</p>
-              <p className="text-muted">بانتظار جوجل</p>
+              <p className="text-lg font-black text-amber-600 tabular-nums">{stats.map.linked}</p>
+              <p className="text-muted">يحتاج تحديث</p>
             </div>
             <div>
-              <p className="text-lg font-black text-muted tabular-nums">{stats.google.not_submitted}</p>
-              <p className="text-muted">لم يُرسل</p>
+              <p className="text-lg font-black text-muted tabular-nums">{stats.map.none}</p>
+              <p className="text-muted">غير منشور</p>
             </div>
           </div>
         </section>
@@ -310,16 +312,39 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
           >
             <span className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-muted" />
-              إعدادات متقدمة (OpenStreetMap)
+              الخريطة المفتوحة (OpenStreetMap)
+              <span
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                  osmConfigured ? 'bg-brand-soft text-brand' : 'bg-amber-50 text-amber-800'
+                }`}
+              >
+                {osmConfigured ? 'مربوط' : 'غير مربوط'}
+              </span>
             </span>
             <ChevronDown className={`w-5 h-5 text-muted transition ${advancedOpen ? 'rotate-180' : ''}`} />
           </button>
           {advancedOpen && (
             <div className="px-4 pb-4 space-y-3 text-sm">
+              {!osmConfigured && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2 text-ink">
+                  <p className="font-bold">ربط حساب المكتب (مرة واحدة، مجاني)</p>
+                  <ol className="list-decimal pr-5 space-y-1 text-[13px] leading-relaxed">
+                    <li>أنشئ حساباً للمكتب في openstreetmap.org.</li>
+                    <li>الإعدادات ← تطبيقات OAuth 2 ← تسجيل تطبيق جديد.</li>
+                    <li>
+                      رابط العودة:
+                      <span dir="ltr" className="block font-mono text-xs bg-white rounded px-2 py-1 mt-1 break-all">
+                        {getOsmRedirectUri()}
+                      </span>
+                    </li>
+                    <li>ألغِ «تطبيق سرّي»، واختر صلاحية «تعديل الخريطة»، ثم أرسل «معرّف العميل» للمطوّر.</li>
+                  </ol>
+                </div>
+              )}
               <label className="flex items-center justify-between gap-3 p-3 rounded-xl bg-sand border border-line">
                 <span>
-                  <span className="block font-bold text-ink">زر «نشر في OpenStreetMap»</span>
-                  <span className="block text-xs text-muted">يظهر داخل بطاقة المسجد للموظفين</span>
+                  <span className="block font-bold text-ink">السماح للموثِّقين بالنشر</span>
+                  <span className="block text-xs text-muted">المدير يستطيع النشر دائماً</span>
                 </span>
                 <input
                   type="checkbox"
@@ -328,20 +353,6 @@ export function AdminPage({ mosques, currentUser, osmSettings }: AdminPageProps)
                   onChange={(e) => void toggleOsm({ osmPublishEnabled: e.target.checked })}
                 />
               </label>
-              {osmSettings.osmPublishEnabled && (
-                <label className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <span>
-                    <span className="block font-bold text-ink">النشر على الخادم الحقيقي</span>
-                    <span className="block text-xs text-muted">عند الإيقاف يُستخدم الخادم التجريبي</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 accent-[#b45309]"
-                    checked={osmSettings.osmUseProduction}
-                    onChange={(e) => void toggleOsm({ osmUseProduction: e.target.checked })}
-                  />
-                </label>
-              )}
             </div>
           )}
         </section>

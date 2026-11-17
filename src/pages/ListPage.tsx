@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Download, ImageOff, Map as MapIcon, Search, X } from 'lucide-react';
-import type { GoogleMapsStatus, MosqueRecord, OsmSettings, UserProfile } from '../types/mosque';
+import type { MapStatus, MosqueRecord, OsmSettings, UserProfile } from '../types/mosque';
 import { normalizeArabicName, timeAgoArabic } from '../lib/utils/geo';
 import { exportMosquesToKml, exportMosquesToCsv } from '../lib/export/geoExport';
 import { exportExcel } from '../lib/export/lazyExport';
-import { GoogleStatusBadge } from '../components/ui/GoogleStatusBadge';
+import { MapStatusBadge } from '../components/ui/MapStatusBadge';
 import { MosqueSheet } from '../components/MosqueSheet';
 import { MosqueFormSheet } from '../components/MosqueFormSheet';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -17,14 +17,15 @@ interface ListPageProps {
   onShowOnMap: (mosque: MosqueRecord) => void;
 }
 
-type Filter = 'all' | 'mine' | GoogleMapsStatus;
+type Filter = 'all' | 'mine' | 'no_photos' | MapStatus;
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'الكل' },
   { id: 'mine', label: 'توثيقاتي' },
-  { id: 'not_submitted', label: 'لم يُرسل لجوجل' },
-  { id: 'submitted', label: 'بانتظار جوجل' },
-  { id: 'live', label: 'ظاهر في جوجل' },
+  { id: 'none', label: 'غير منشور' },
+  { id: 'linked', label: 'يحتاج تحديث' },
+  { id: 'published', label: 'منشور' },
+  { id: 'no_photos', label: 'بدون صور' },
 ];
 
 export function ListPage({ mosques, currentUser, osmSettings, loading, onShowOnMap }: ListPageProps) {
@@ -41,10 +42,11 @@ export function ListPage({ mosques, currentUser, osmSettings, loading, onShowOnM
   );
 
   const counts = useMemo(() => {
-    const c: Record<Filter, number> = { all: mosques.length, mine: 0, not_submitted: 0, submitted: 0, live: 0 };
+    const c: Record<Filter, number> = { all: mosques.length, mine: 0, no_photos: 0, none: 0, linked: 0, published: 0 };
     mosques.forEach((m) => {
       if (m.createdBy === currentUser.uid) c.mine += 1;
-      c[m.googleMapsStatus] += 1;
+      if (m.photos.length === 0) c.no_photos += 1;
+      c[m.mapStatus] += 1;
     });
     return c;
   }, [mosques, currentUser.uid]);
@@ -53,7 +55,8 @@ export function ListPage({ mosques, currentUser, osmSettings, loading, onShowOnM
     const q = normalizeArabicName(query);
     return mosques.filter((m) => {
       if (filter === 'mine' && m.createdBy !== currentUser.uid) return false;
-      if (filter !== 'all' && filter !== 'mine' && m.googleMapsStatus !== filter) return false;
+      if (filter === 'no_photos' && m.photos.length > 0) return false;
+      if ((filter === 'none' || filter === 'linked' || filter === 'published') && m.mapStatus !== filter) return false;
       if (locality !== 'all' && m.locality.trim() !== locality) return false;
       if (q && !normalizeArabicName(`${m.officialName} ${m.commonName} ${m.landmark} ${m.createdByName}`).includes(q))
         return false;
@@ -151,7 +154,7 @@ export function ListPage({ mosques, currentUser, osmSettings, loading, onShowOnM
                 <p className="font-extrabold text-ink leading-snug truncate">{m.officialName}</p>
                 <p className="text-sm text-muted truncate">{m.locality}</p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <GoogleStatusBadge status={m.googleMapsStatus} />
+                  <MapStatusBadge status={m.mapStatus} />
                   <span className="text-[11px] text-muted truncate">
                     {m.createdByName} · {timeAgoArabic(m.createdAt)}
                   </span>
@@ -185,6 +188,7 @@ export function ListPage({ mosques, currentUser, osmSettings, loading, onShowOnM
         editing={editing}
         existingMosques={mosques}
         currentUser={currentUser}
+        osmSettings={osmSettings}
         onClose={() => setEditing(null)}
         onChangeLocation={() => undefined}
         onEditExisting={(m) => {
@@ -221,7 +225,7 @@ export function ListPage({ mosques, currentUser, osmSettings, loading, onShowOnM
               className="btn-outline w-full h-12 text-sm"
             >
               <MapIcon className="w-4 h-4 text-brand" />
-              ملف KML (لخرائط Google My Maps)
+              ملف KML (لأي تطبيق خرائط)
             </button>
             <button
               type="button"

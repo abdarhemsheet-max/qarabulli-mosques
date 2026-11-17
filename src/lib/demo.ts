@@ -22,13 +22,13 @@ function photo(hue: number): string {
 }
 
 const base = { lat: 32.7427, lng: 13.7128 };
-const samples: [string, string, number, number, MosqueRecord['googleMapsStatus'], string, number][] = [
-  ['مسجد الصحابة', 'وسط البلد', 0.0012, -0.0008, 'live', 'عبدالرحيم', 2],
-  ['مسجد عمر بن الخطاب', 'السوق', -0.0035, 0.0041, 'submitted', 'محمد الطاهر', 1],
-  ['مسجد الفاروق', 'الشرفة', 0.0061, 0.0072, 'not_submitted', 'محمد الطاهر', 0],
-  ['جامع القره بوللي الكبير', 'وسط البلد', -0.0009, -0.0052, 'live', 'عبدالرحيم', 3],
-  ['مسجد أبي بكر الصديق', 'المصيف', 0.0451, 0.0248, 'not_submitted', 'سالم', 1],
-  ['مسجد النور', 'السوق', -0.0081, 0.0013, 'not_submitted', 'سالم', 0],
+const samples: [string, string, number, number, MosqueRecord['mapStatus'], string, number][] = [
+  ['مسجد الصحابة', 'وسط البلد', 0.0012, -0.0008, 'published', 'عبدالرحيم', 2],
+  ['مسجد عمر بن الخطاب', 'السوق', -0.0035, 0.0041, 'linked', 'محمد الطاهر', 1],
+  ['مسجد الفاروق', 'الشرفة', 0.0061, 0.0072, 'none', 'محمد الطاهر', 0],
+  ['جامع القره بوللي الكبير', 'وسط البلد', -0.0009, -0.0052, 'published', 'عبدالرحيم', 3],
+  ['مسجد أبي بكر الصديق', 'المصيف', 0.0451, 0.0248, 'none', 'سالم', 1],
+  ['مسجد النور', 'السوق', -0.0081, 0.0013, 'none', 'سالم', 0],
 ];
 
 export const DEMO_MOSQUES: MosqueRecord[] = samples.map(([name, locality, dLat, dLng, status, by, photos], i) => {
@@ -48,15 +48,15 @@ export const DEMO_MOSQUES: MosqueRecord[] = samples.map(([name, locality, dLat, 
     accuracy: 6 + i,
     photos: Array.from({ length: photos }, (_, j) => photo((i * 50 + j * 30) % 360)),
     photoCount: photos,
-    osmId: '',
+    osmId: status === 'none' ? '' : `node_${9000000000 + i}`,
     googlePlaceId: '',
     createdBy: by === 'عبدالرحيم' ? 'demo-admin' : `demo-${by}`,
     createdByName: by,
     createdAt: created,
     updatedAt: created,
     updatedBy: '',
-    googleMapsStatus: status,
-    googleMapsSubmittedAt: status === 'not_submitted' ? null : created,
-    googleMapsSubmittedByName: status === 'not_submitted' ? '' : by,
+    mapStatus: status,
+    osmPublishedAt: status === 'published' ? created : null,
+    osmPublishedByName: status === 'published' ? by : '',
   };
 });
